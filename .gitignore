@@ -1,0 +1,7 @@
+.DS_Store
+.env
+.env.*
+*.log
+
+# Ruflo/claude-flow internal tool telemetry — not project content
+.claude-flow/

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Nexus Card</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="phone">
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" class="screen hidden"></div>
+
+  <!-- RECIPIENT (public card) VIEW -->
+  <div id="recipient" class="screen hidden"></div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="hidden">
+    <main id="view"></main>
+    <nav id="tabbar">
+      <button data-tab="card" class="tab active"><span class="tab-ic">▣</span>My Card</button>
+      <button data-tab="contacts" class="tab"><span class="tab-ic">☰</span>Contacts<span id="due-badge" class="badge hidden"></span></button>
+      <button data-tab="pipeline" class="tab"><span class="tab-ic">▤</span>Pipeline</button>
+      <button data-tab="analytics" class="tab"><span class="tab-ic">◔</span>Insights</button>
+    </nav>
+  </div>
+
+  <!-- SHEET / MODAL host -->
+  <div id="sheet-backdrop" class="hidden"></div>
+  <div id="sheet" class="hidden"></div>
+
+  <!-- TOASTS -->
+  <div id="toasts"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/qrcode.js?v=3"></script>
+<script src="js/supabase-client.js?v=3"></script>
+<script src="js/store.js?v=3"></script>
+<script src="js/onboarding.js?v=3"></script>
+<script src="js/card.js?v=3"></script>
+<script src="js/contacts.js?v=3"></script>
+<script src="js/pipeline.js?v=3"></script>
+<script src="js/analytics.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
+</body>
+</html>
