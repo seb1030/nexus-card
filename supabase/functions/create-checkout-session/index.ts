@@ -8,21 +8,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17.0.0";
+import { resolveTier, MAX_SEATS } from "../_shared/plans.ts";
 
 const stripe = new Stripe(Deno.env.get("NEXUS_STRIPE_SECRET_KEY")!);
-
-// tier -> Stripe Price. Team enforces a 3-seat minimum at Checkout since
-// Stripe has no native "minimum quantity" on the Price object itself.
-const PRICES = {
-  pro_monthly: { priceId: "price_1Tv1dTChHr9GMVU26sxSTSt6", minQuantity: null },
-  pro_yearly: { priceId: "price_1Tv1deChHr9GMVU2ArpuWqDQ", minQuantity: null },
-  team_monthly: { priceId: "price_1Tv1dhChHr9GMVU2WJPpbL27", minQuantity: 3 },
-};
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Raised for input we want to report back verbatim; everything else gets a
+// generic message so Stripe/Supabase internals never reach the browser.
+class ClientError extends Error {}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -37,13 +35,34 @@ Deno.serve(async (req) => {
     );
     const jwt = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userErr } = await supabase.auth.getUser(jwt);
-    if (userErr || !user) throw new Error("Invalid session");
+    if (userErr || !user) throw new ClientError("Invalid session");
+
+    // An anonymous account exists only in one browser's localStorage. If it
+    // is lost (cleared data, new device, iOS ITP's 7-day purge) the
+    // subscription becomes unreachable: we cannot identify the payer, and
+    // profiles.email is empty so we have no address to refund or contact.
+    // Identity must exist BEFORE money changes hands. The client gates this
+    // too, but this is the authoritative check.
+    if (user.is_anonymous) {
+      throw new ClientError("Add and confirm an email before subscribing, so you can't lose access to your plan.");
+    }
 
     const { tier, seats, origin } = await req.json();
-    const plan = PRICES[tier];
-    if (!plan) throw new Error("Unknown tier: " + tier);
+    const plan = resolveTier(tier);
+    if (!plan) throw new ClientError("Unknown tier");
 
-    const quantity = plan.minQuantity ? Math.max(seats || plan.minQuantity, plan.minQuantity) : 1;
+    // seats is client-supplied. The floor was enforced but not the ceiling,
+    // so a crafted request could open a Checkout session for an arbitrary
+    // amount; non-integers produced opaque Stripe errors.
+    let quantity = 1;
+    if (plan.minQuantity) {
+      const n = Number(seats);
+      if (seats !== undefined && seats !== null && (!Number.isInteger(n) || n < 1)) {
+        throw new ClientError("Invalid seat count");
+      }
+      const wanted = Number.isInteger(n) ? n : plan.minQuantity;
+      quantity = Math.min(Math.max(wanted, plan.minQuantity), MAX_SEATS);
+    }
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -64,7 +83,7 @@ Deno.serve(async (req) => {
     const base = origin || req.headers.get("origin") || "http://localhost:8742";
     const lineItem = { price: plan.priceId, quantity };
     if (plan.minQuantity) {
-      lineItem.adjustable_quantity = { enabled: true, minimum: plan.minQuantity, maximum: 500 };
+      lineItem.adjustable_quantity = { enabled: true, minimum: plan.minQuantity, maximum: MAX_SEATS };
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -81,9 +100,17 @@ Deno.serve(async (req) => {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    // This function previously had no logging at all and returned raw
+    // err.message to the browser -- which leaked Stripe key fragments and
+    // account state ("a similar object exists in live mode").
+    console.error("create-checkout-session failed", err);
+    const isClient = err instanceof ClientError;
+    return new Response(
+      JSON.stringify({ error: isClient ? err.message : "Could not start checkout. Please try again." }),
+      {
+        status: isClient ? 400 : 502,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      }
+    );
   }
 });

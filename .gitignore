@@ -5,3 +5,6 @@
 
 # Ruflo/claude-flow internal tool telemetry — not project content
 .claude-flow/
+
+# Edge Function secrets — never commit
+supabase/.env.secrets
