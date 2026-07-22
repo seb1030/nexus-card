@@ -21,8 +21,7 @@ const CardView = {
       <p class="section-label">Sharing options</p>
       <div class="share-opt"><div class="feed-ic">▦</div><div style="flex:1"><b>QR code</b><div class="sub">Works offline — static QR</div></div><button class="btn small secondary" onclick="CardView.shareSheet()">Show</button></div>
       <div class="share-opt"><div class="feed-ic">🔗</div><div style="flex:1"><b>Card link</b><div class="sub">${esc(Store.cardUrl())}</div></div><button class="btn small secondary" onclick="CardView.copyLink()">Copy</button></div>
-      <div class="share-opt"><div class="feed-ic">👛</div><div style="flex:1"><b>Apple Wallet</b><div class="sub">One-tap add</div></div><button class="btn small secondary" onclick="toast('Added to Wallet (demo)')">Add</button></div>
-      <p style="text-align:center;margin:18px 0 4px"><button class="btn ghost small" onclick="Store.reset()">Reset demo data</button></p>`;
+      <p style="text-align:center;margin:18px 0 4px"><button class="btn ghost small" onclick="Store.reset()">Delete my card &amp; data</button></p>`;
   },
 
   bizCard(me, isRecipient) {
@@ -41,7 +40,7 @@ const CardView = {
         ${isRecipient ? `
           <div class="biz-actions">
             <button class="btn" onclick="Recipient.saveContact()">Save to Contacts</button>
-            <button class="btn secondary" onclick="toast('Share sheet (demo)')">Share</button>
+            <button class="btn secondary" onclick="CardView.copyLink()">Share</button>
           </div>` : ''}
       </div>`;
   },
@@ -50,8 +49,8 @@ const CardView = {
     const l = Store.state.me.links.find(x => x.id === id);
     if (!l) return;
     if (isRecipient) {
-      toast('Opening ' + l.url + ' (demo)');
-      if (l.type === 'Calendly') setTimeout(() => toast('🔥 High intent: they clicked "Book a call"'), 700);
+      if (/^https?:\/\//i.test(l.url || '')) window.open(l.url, '_blank', 'noopener,noreferrer');
+      else toast('This link is not a valid web address.');
       Store.recordLinkClick(id).then(() => { if (App.tab === 'analytics') App.renderTab(); }).catch(() => {});
     } else {
       toast(l.url);
@@ -91,8 +90,6 @@ const CardView = {
           <label class="switch"><input type="checkbox" id="ed-phone" ${me.fields.phone ? 'checked' : ''}><i></i></label></div>
         <div class="row card-box"><span style="flex:1">Show email</span>
           <label class="switch"><input type="checkbox" id="ed-email" ${me.fields.email ? 'checked' : ''}><i></i></label></div>
-        <div class="row card-box"><div style="flex:1">Auto-tag “where we met”<div class="sub" style="font-size:12px">Uses your location + calendar. Off by default.</div></div>
-          <label class="switch"><input type="checkbox" id="ed-geotag" ${me.geotag ? 'checked' : ''}><i></i></label></div>
         <p class="section-label">Brand color</p>
         <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
           `<div class="swatch ${me.color === c ? 'on' : ''}" style="background:${c}" onclick="CardView.saveColor('${c}')"></div>`).join('')}</div>
@@ -110,9 +107,8 @@ const CardView = {
     const company = document.getElementById('ed-company').value.trim();
     const showPhone = document.getElementById('ed-phone').checked;
     const showEmail = document.getElementById('ed-email').checked;
-    const geotag = document.getElementById('ed-geotag').checked;
     try {
-      await Store.updateCardFields({ name, title, company, showPhone, showEmail, geotag });
+      await Store.updateCardFields({ name, title, company, showPhone, showEmail });
     } catch (err) {
       toast('Could not save: ' + err.message);
       return;
@@ -136,11 +132,11 @@ const Recipient = {
       ${CardView.bizCard(Store.state.me, true)}
       <div id="shareback"></div>
       <p class="sub" style="text-align:center;margin-top:16px">No app download. No account. Just your card.</p>
-      <p class="sub" style="text-align:center;margin-top:10px;font-size:12px">🔒 ${esc(Store.state.me.name.split(' ')[0])} is notified when this card is viewed (city-level location only, never precise).</p>
+      <p class="sub" style="text-align:center;margin-top:10px;font-size:12px">🔒 ${esc(Store.state.me.name.split(' ')[0])} is notified when this card is viewed. No location is collected.</p>
       <button class="btn ghost" style="margin-top:10px" onclick="Recipient.close()">← Back to your app</button>`;
     Store.recordCardView()
-      .then(() => toast('👀 Your card was just viewed · San Francisco'))
-      .catch(() => {});
+      .then(() => toast('👀 Your card was just viewed'))
+      .catch(err => console.warn('view not recorded', err));
   },
 
   saveContact() {
@@ -216,15 +212,11 @@ const PostExchange = {
           <div class="c-meta">${ct.metAt ? '📍 Met at: ' + esc(ct.metAt) + ' · ' : ''}just now</div></div>
         </div>
       </div>
-      ${Store.state.me.geotag ? `
-        <p class="section-label">Were you at SaaStr Annual?</p>
-        <p class="sub" style="margin-bottom:10px">Auto-detected from your location + calendar (you opted in). We tagged this contact for you.</p>` : `
-        <p class="section-label">Where did you meet?</p>
-        <div class="row" style="margin-bottom:10px">
-          <input type="text" id="pe-metat" placeholder="e.g. SaaStr Annual">
-          <button class="btn small" onclick="PostExchange.setMetAt('${ct.id}')">Tag</button>
-        </div>
-        <p class="sub" style="margin-bottom:10px">Turn on auto-detection in Edit card to tag this automatically.</p>`}
+      <p class="section-label">Where did you meet?</p>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="pe-metat" placeholder="e.g. SaaStr Annual">
+        <button class="btn small" onclick="PostExchange.setMetAt('${ct.id}')">Tag</button>
+      </div>
       <p class="section-label">Follow-up suggestions</p>
       <div class="chips" style="padding-top:2px">
         <span class="pill clickable" onclick="PostExchange.remind('${ct.id}','Send LinkedIn connection request',3)">Send LinkedIn request</span>
@@ -240,14 +232,18 @@ const PostExchange = {
   async setMetAt(id) {
     const v = document.getElementById('pe-metat').value.trim();
     if (!v) return;
-    await Store.setContactMetAt(id, v);
-    toast('📍 Tagged: met at ' + v);
+    await guard(async () => {
+      await Store.setContactMetAt(id, v);
+      toast('📍 Tagged: met at ' + v);
+    }, 'Could not save where you met');
   },
   async remind(id, text, days) {
-    await Store.addReminder(id, text, Date.now() + days * DAY);
-    closeSheet();
-    toast('⏰ Reminder set: "' + text + '"');
-    App.refreshBadge();
+    await guard(async () => {
+      await Store.addReminder(id, text, Date.now() + days * DAY);
+      closeSheet();
+      toast('⏰ Reminder set: "' + text + '"');
+      App.refreshBadge();
+    }, 'Could not set reminder');
   }
 };
 
@@ -265,30 +261,45 @@ const Paywall = {
       <h2>Plans</h2>
       <p class="sub" style="margin:6px 0 4px">Follow-up reminders are unlimited on every plan — that's the whole point of Nexus.</p>
       ${tier('Free', '$0', ['Full card design + QR & link sharing', 'Unlimited shares & contact notes', '<b>Unlimited follow-up reminders</b>', 'Basic analytics (views, saves)'])}
-      ${tier('Pro', Store.isPro() ? '$6/mo · $49/yr' : '$6/mo', ['Everything in Free', 'Card view notifications (city-level)', 'Pipeline management', 'Custom domain for your card link', 'Advanced analytics'],
+      ${tier('Pro', Store.isPro() ? '$6/mo · $49/yr' : '$6/mo', ['Everything in Free', 'Live activity feed — see every card view and tap', 'Pipeline management'],
         Store.isPro() ? '' : `
           <div class="row" style="gap:8px;margin-top:10px">
             <button class="btn small" onclick="Paywall.checkout('pro_monthly')">Monthly — $6</button>
             <button class="btn small secondary" onclick="Paywall.checkout('pro_yearly')">Yearly — $49</button>
           </div>`)}
-      ${tier('Team', '$8/user/mo · min 3', ['Everything in Pro', 'Admin dashboard + branded templates', 'Native CRM sync (HubSpot, Salesforce, Pipedrive)', 'Leaderboard ranks <b>follow-ups completed</b>, not cards blasted'],
-        Store.state.plan === 'team' ? '' : `
-          <div class="row" style="gap:8px;margin-top:10px;align-items:center">
-            <input type="number" id="team-seats" value="3" min="3" style="width:70px" onchange="if(this.value<3)this.value=3">
-            <span class="sub" style="font-size:12px">seats</span>
-            <button class="btn small" style="flex:1" onclick="Paywall.checkout('team_monthly', +document.getElementById('team-seats').value)">Start Team</button>
-          </div>`)}
+      ${/* Team is not for sale: there is no team UI, and sync_profile_plan
+            grants nothing for owner_type='team'. Selling it would take money
+            for a tier that delivers exactly Pro. Restore the checkout button
+            when the feature actually exists. */''}
+      ${tier('Team', 'Coming soon', ['Everything in Pro', 'Shared team contact pool', 'Admin visibility across the team'], `
+          <p class="sub" style="margin-top:10px;font-size:12px">Not available yet — we'll announce it when it ships.</p>`)}
       <p class="sub" style="text-align:center;font-size:12px;margin-top:12px">Checkout is powered by Stripe (test mode). Subscriptions are governed by our <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>.</p>
       <button class="btn ghost" onclick="closeSheet()">Close</button>`);
   },
 
-  /* Real Stripe Checkout. The Checkout page itself collects a verified
-     email, so there's no separate "secure your account first" step
-     needed — that's what the removed magic-link placeholder used to
-     stand in for before billing existed. */
+  /* Real Stripe Checkout.
+     Stripe collects an email at Checkout, but that is a *billing* email —
+     it is never written back to the Supabase account, so the user stays
+     anonymous. An anonymous account lives only in this browser's
+     localStorage, so a customer who clears data (or hits iOS Safari's
+     7-day ITP purge) loses a plan they are still being charged for, and we
+     have no email on file to identify or refund them. Identity therefore
+     has to exist before money does. create-checkout-session enforces the
+     same rule server-side; this gate exists so the user gets a path
+     forward instead of a rejection. */
   async checkout(tier, seats) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { toast('Not signed in — reload and try again'); return; }
+
+    if (session.user?.is_anonymous || !Store.state.accountSecured) {
+      Paywall.stashPending(tier, seats);
+      Account.promptSecure(
+        'Add an email before subscribing. Your account currently exists only in this browser — ' +
+        'without an email, clearing it would lose the plan you paid for, with no way to recover it.'
+      );
+      return;
+    }
+
     openSheet(`<h2>Redirecting to checkout…</h2><p class="sub" style="margin-top:8px">Powered by Stripe.</p>`);
     try {
       const res = await fetch(SUPABASE_URL + '/functions/v1/create-checkout-session', {
@@ -303,6 +314,35 @@ const Paywall = {
       toast('Checkout failed: ' + err.message);
       closeSheet();
     }
+  },
+
+  /* The email-linking detour leaves the app entirely (confirmation link),
+     so the upgrade intent has to survive a full page load. sessionStorage
+     rather than memory, and it is cleared as soon as it is consumed. */
+  PENDING_KEY: 'nexus_pending_upgrade',
+
+  stashPending(tier, seats) {
+    try { sessionStorage.setItem(this.PENDING_KEY, JSON.stringify({ tier, seats })); } catch (e) { /* private mode */ }
+  },
+
+  takePending() {
+    try {
+      const raw = sessionStorage.getItem(this.PENDING_KEY);
+      if (!raw) return null;
+      sessionStorage.removeItem(this.PENDING_KEY);
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  },
+
+  /* Called after the account-linking email is confirmed. */
+  resumePending() {
+    const pending = this.takePending();
+    if (!pending || !Store.state.accountSecured) return;
+    openSheet(`
+      <h2>Account secured 🔐</h2>
+      <p class="sub" style="margin:8px 0 14px">You can now recover this account on any device. Ready to finish upgrading?</p>
+      <button class="btn" onclick="Paywall.checkout('${esc(pending.tier)}', ${Number(pending.seats) || 'undefined'})">Continue to checkout</button>
+      <button class="btn ghost" onclick="closeSheet()">Not now</button>`);
   }
 };
 
@@ -319,17 +359,18 @@ const Account = {
       <p class="sub" style="margin:8px 0 14px">${reason || 'Add an email so you can recover your account on a new device or browser.'} No password — we email you a link.</p>
       <label class="field"><span>Email</span><input type="email" id="acct-email" value="${esc(suggested)}" placeholder="you@company.com"></label>
       <button class="btn" onclick="Account.sendLink()">Send secure link</button>
-      <button class="btn ghost" onclick="closeSheet()">Not now</button>`);
+      <button class="btn ghost" onclick="Paywall.takePending();closeSheet()">Not now</button>`);
   },
 
   async sendLink() {
     const email = document.getElementById('acct-email').value.trim();
     if (!email.includes('@')) { toast('Enter a valid email'); return; }
     openSheet(`<h2>Sending…</h2><p class="sub" style="margin-top:8px">One moment.</p>`);
-    const { error } = await sb.auth.updateUser(
-      { email },
-      { emailRedirectTo: location.origin + '/index.html?linked=success' }
-    );
+    // Resolve against the current document rather than assuming the app is
+    // served from the origin root — if this 404s, account linking silently
+    // dead-ends, which now also blocks checkout.
+    const redirect = new URL('index.html?linked=success', location.href).href;
+    const { error } = await sb.auth.updateUser({ email }, { emailRedirectTo: redirect });
     if (error) {
       openSheet(`
         <h2>Couldn't send the link</h2>

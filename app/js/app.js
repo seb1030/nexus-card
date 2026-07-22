@@ -59,6 +59,25 @@ function toast(msg) {
   setTimeout(() => t.remove(), 3000);
 }
 
+/* Wraps a mutating handler so a failed write surfaces to the user instead
+   of becoming an unhandled rejection. Without this, a rejected store call
+   aborts the handler mid-way: the sheet never closes, the pipeline card
+   snaps back, and nothing explains why. */
+async function guard(fn, msg) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(err);
+    toast((msg || 'Something went wrong') + ': ' + (err?.message || err));
+  }
+}
+
+/* Last-resort net for anything not routed through guard(). */
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled rejection', e.reason);
+  toast('Something went wrong — please try again.');
+});
+
 /* tab clicks */
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => App.go(b.dataset.tab)));
 
@@ -92,28 +111,21 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
       history.replaceState({}, '', location.pathname);
       if (checkoutResult === 'success') {
         toast('✓ Payment received — activating your plan…');
+        // Self-scheduling rather than setInterval: the callback awaits, so
+        // an interval fires overlapping iterations on a slow connection and
+        // several of them each toast and re-render before one clears it.
         let tries = 0;
-        const poll = setInterval(async () => {
+        const poll = async () => {
           tries++;
-          const plan = await Store.refreshProfile();
-          if (plan !== 'free' || tries >= 6) {
-            clearInterval(poll);
-            toast(plan !== 'free'
-              ? '🎉 Welcome to ' + (plan === 'team' ? 'Team' : 'Pro') + '!'
-              : 'Still activating — reload in a moment if it doesn’t update.');
-            App.renderTab();
-            // A paying account is still a silent anonymous session unless
-            // linked — without this, clearing browser data or switching
-            // devices loses access to the subscription with no way back.
-            if (plan !== 'free' && !Store.state.accountSecured) {
-              sb.auth.getSession().then(({ data: { session } }) => {
-                if (session?.user?.is_anonymous) {
-                  Account.promptSecure('You just went ' + (plan === 'team' ? 'Team' : 'Pro') + ' — add an email so you never lose access to it.');
-                }
-              });
-            }
-          }
-        }, 1200);
+          let plan = 'free';
+          try { plan = await Store.refreshProfile(); } catch (err) { console.error(err); }
+          if (plan === 'free' && tries < 6) { setTimeout(poll, 1200); return; }
+          toast(plan !== 'free'
+            ? '🎉 Welcome to ' + (plan === 'team' ? 'Team' : 'Pro') + '!'
+            : 'Still activating — reload in a moment if it doesn’t update.');
+          App.renderTab();
+        };
+        setTimeout(poll, 1200);
       } else if (checkoutResult === 'cancel') {
         toast('Checkout canceled — no charge made.');
       }
@@ -125,6 +137,12 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
       Store.refreshProfile().then(() => {
         toast(Store.state.accountSecured ? '🔐 Account secured — you can now recover it anytime' : '✓ Confirmed');
         App.renderTab();
+        // If they were mid-upgrade when we sent them to link an email,
+        // pick that back up rather than making them find Plans again.
+        Paywall.resumePending();
+      }).catch(err => {
+        console.error(err);
+        toast('Could not confirm your account — please reload.');
       });
     }
   } else {

@@ -51,8 +51,7 @@ const Pipeline = {
       <p class="section-label">Stage reminder templates</p>
       <div class="card-box"><b style="font-size:13.5px">New Lead</b><div class="sub">Auto-suggest: "Send intro + LinkedIn request" after 2 days</div></div>
       <div class="card-box"><b style="font-size:13.5px">Contacted</b><div class="sub">Auto-suggest: "Nudge if no reply" after 5 days</div></div>
-      <div class="card-box"><b style="font-size:13.5px">Meeting Scheduled</b><div class="sub">Auto-suggest: "Send agenda" 1 day before</div></div>
-      <button class="btn secondary" style="margin-top:10px" onclick="toast('Exported 5 contacts to HubSpot (demo — native sync, no Zapier)')">Export to HubSpot</button>`;
+      <div class="card-box"><b style="font-size:13.5px">Meeting Scheduled</b><div class="sub">Auto-suggest: "Send agenda" 1 day before</div></div>`;
   },
 
   async drop(ev, stage) {
@@ -61,9 +60,12 @@ const Pipeline = {
     const id = ev.dataTransfer.getData('text/plain');
     const c = Store.contact(id);
     if (c && c.stage !== stage) {
-      await Store.setContactStage(id, stage);
-      App.renderTab();
-      toast(c.name + ' → ' + this.stageName(stage));
+      await guard(async () => {
+        await Store.setContactStage(id, stage);
+        App.renderTab();
+        toast(c.name + ' → ' + this.stageName(stage));
+      }, 'Could not move ' + c.name);
+      App.renderTab();   // snap back to the true stage if the write failed
     }
   }
 };

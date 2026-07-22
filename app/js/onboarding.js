@@ -25,10 +25,7 @@ const Onboarding = {
     return `${this.progress()}
       <h1>Let's build your card</h1>
       <p class="sub">Takes about 60 seconds. No sign-up wall, no email verification.</p>
-      <div style="margin:18px 0 6px">
-        <button class="btn secondary li-btn" onclick="Onboarding.linkedinSignIn()"><span class="li-badge">in</span>Continue with LinkedIn</button>
-        <p class="sub" style="margin-top:6px;font-size:12px">Brings in your name, photo & verified email. You add title & company — two fields, ten seconds. Your phone can autofill the rest from your own contact card.</p>
-      </div>
+      <p class="sub" style="margin:14px 0 2px;font-size:12px">Tip: your phone can autofill these from your own contact card.</p>
       <p class="section-label">Your details</p>
       <label class="field"><span>Full name</span><input type="text" id="ob-name" autocomplete="name" value="${esc(d.name)}" placeholder="Alex Rivera"></label>
       <label class="field"><span>Title</span><input type="text" id="ob-title" autocomplete="organization-title" value="${esc(d.title)}" placeholder="Product Designer"></label>
@@ -38,17 +35,11 @@ const Onboarding = {
       <button class="btn" style="margin-top:8px" onclick="Onboarding.next1()">Continue</button>`;
   },
 
-  /* Official "Sign in with LinkedIn" (OpenID) returns name, photo, and
-     verified email ONLY — no title/company. That's the honest flow. */
-  linkedinSignIn() {
-    this.readFields();
-    Object.assign(this.draft, { name: 'Alex Rivera', email: 'alex@acme.com' });
-    this.render();
-    toast('✓ LinkedIn: name, photo & email imported — add your title & company');
-    this.inferCompany();
-    const t = document.getElementById('ob-title');
-    if (t) t.focus();
-  },
+  /* "Continue with LinkedIn" removed: it was not an OAuth flow at all — it
+     hardcoded Object.assign(draft, {name:'Alex Rivera', email:'alex@acme.com'}),
+     so the most prominent button on the first screen filled in a stranger's
+     details. Restore it as a real Sign in with LinkedIn (OpenID Connect)
+     provider in Supabase Auth when that is wired up. */
 
   /* Free enrichment: infer company from a work-email domain. */
   inferCompany() {
@@ -94,9 +85,7 @@ const Onboarding = {
       <div class="card-box row"><span style="flex:1">Email address</span>
         <label class="switch"><input type="checkbox" ${d.fields.email ? 'checked' : ''} onchange="Onboarding.draft.fields.email=this.checked"><i></i></label></div>
       <p class="section-label">Privacy</p>
-      <div class="card-box row"><div style="flex:1">Auto-tag “where we met”<div class="sub" style="font-size:12px">Uses your location + calendar to tag new contacts with the event. Optional — you can always tag manually.</div></div>
-        <label class="switch"><input type="checkbox" ${d.geotag ? 'checked' : ''} onchange="Onboarding.draft.geotag=this.checked"><i></i></label></div>
-      <p class="sub" style="margin-top:6px;font-size:12px">People who view your card see a notice that views are shared with you (city-level only).</p>
+      <p class="sub" style="margin-top:6px;font-size:12px">People who view your card see a notice that views are shared with you. No location is collected from them.</p>
       <p class="section-label">Links</p>
       ${d.links.map(linkRow).join('') || '<p class="sub" style="margin-bottom:8px">No links yet.</p>'}
       <div class="row" style="margin-bottom:8px">

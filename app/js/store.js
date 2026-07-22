@@ -15,6 +15,15 @@ function slugify(name) {
   return base + '-' + Math.random().toString(36).slice(2, 6);
 }
 
+/* [...w][0] rather than w[0]: string indexing works on UTF-16 code units,
+   so an emoji or any astral-plane character yields a lone surrogate, which
+   renders as U+FFFD and cannot be encoded as valid UTF-8 for Postgres. */
+function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const chars = parts.map(w => [...w][0]).filter(Boolean);
+  return (chars.join('').slice(0, 2) || 'NC').toUpperCase();
+}
+
 const DEFAULT_STATE = () => ({
   onboarded: false,
   plan: 'free',                 // 'free' | 'pro' | 'team'
@@ -41,20 +50,38 @@ const Store = {
     const session = await SupabaseAuth.ensureSession();
     this.userId = session.user.id;
 
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', this.userId).maybeSingle();
+    const { data: profile, error: profileErr } = await sb.from('profiles').select('*').eq('id', this.userId).maybeSingle();
+    if (profileErr) throw profileErr;
     if (profile) {
       this.state.plan = profile.plan;
       this.state.accountSecured = profile.account_secured;
       this.state.me.accountEmail = profile.email || '';
     }
 
-    const { data: card } = await sb.from('cards').select('*, card_links(*)').eq('owner_id', this.userId).maybeSingle();
+    /* A failed read must never look like "no card yet" — that would drop an
+       existing user into onboarding, and completing it violates the
+       one-card-per-owner unique index and strands them on a raw Postgres
+       error. Only a successful query returning no row means first run. */
+    const { data: card, error: cardErr } = await sb.from('cards').select('*, card_links(*)').eq('owner_id', this.userId).maybeSingle();
+    if (cardErr) throw cardErr;
     if (!card) return this.state;
 
     this.state.onboarded = true;
     this.hydrateCard(card);
     await this.refreshContactsAndEvents();
+    this.syncTimezone();
     return this.state;
+  },
+
+  /* The reminder sweep runs server-side and needs to know whether it is a
+     reasonable hour to email this user. Fire-and-forget: a failure here
+     must never block boot, and the server falls back to UTC. */
+  syncTimezone() {
+    let tz;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return; }
+    if (!tz) return;
+    Promise.resolve(sb.rpc('set_my_timezone', { p_tz: tz }))
+      .catch(err => console.warn('timezone sync failed', err));
   },
 
   hydrateCard(card) {
@@ -88,7 +115,8 @@ const Store = {
   /* Re-reads entitlement after returning from Stripe Checkout — the
      webhook, not this call, is what actually changes the plan. */
   async refreshProfile() {
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', this.userId).maybeSingle();
+    const { data: profile, error } = await sb.from('profiles').select('*').eq('id', this.userId).maybeSingle();
+    if (error) throw error;
     if (profile) {
       this.state.plan = profile.plan;
       this.state.accountSecured = profile.account_secured;
@@ -99,16 +127,20 @@ const Store = {
 
   async refreshEvents() {
     if (!this.state.me.id) return;
-    const { data } = await sb.from('card_events').select('*')
+    const { data, error } = await sb.from('card_events').select('*')
       .eq('card_id', this.state.me.id).order('ts', { ascending: false }).limit(50);
+    if (error) throw error;
     this.state.events = (data || []).map(e => this.hydrateEvent(e));
   },
 
   async refreshContactsAndEvents() {
-    const { data: contacts } = await sb
+    /* Without the error check a failed fetch renders "0 people" — silently
+       telling the user their entire contact list is gone. */
+    const { data: contacts, error } = await sb
       .from('contacts')
       .select('*, reminders(*), contact_history(*)')
       .eq('owner_id', this.userId);
+    if (error) throw error;
     this.state.contacts = (contacts || []).map(c => this.hydrateContact(c));
     await this.refreshEvents();
   },
@@ -120,7 +152,21 @@ const Store = {
   cardUrl() { return location.origin + '/card.html?u=' + this.state.me.slug; },
   contact(id) { return this.state.contacts.find(c => c.id === id); },
 
+  /* DESTRUCTIVE. Sessions are anonymous, so auth.uid() *is* the account and
+     it lives only in this browser's localStorage. Signing out does not
+     "reset demo data" — it discards the only key to this user's card,
+     contacts, reminders and subscription. The rows survive in Postgres,
+     permanently unreachable by anyone.
+     TODO: replace with a real delete (scoped to seeded rows, or a full
+     `delete from cards where owner_id = uid` account deletion) rather than
+     abandoning the identity. Until then it is at least gated. */
   async reset() {
+    const secured = this.state.accountSecured;
+    const warning = secured
+      ? 'This signs you out. You can sign back in with your email link.'
+      : 'This permanently deletes your card, all your contacts, and your reminders.\n\n'
+        + 'Your account is not linked to an email, so this CANNOT be undone and there is no way to recover it.';
+    if (!confirm(warning + '\n\nContinue?')) return;
     await sb.auth.signOut();
     location.reload();
   },
@@ -128,9 +174,7 @@ const Store = {
   /* ---- onboarding ---- */
   async completeOnboarding(draft) {
     const slug = slugify(draft.name);
-    const initials = (draft.name || 'N C').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    // seed engagement so Insights isn't empty on first run
-    draft.links.forEach((l, i) => { if (!l.clicks) l.clicks = [12, 7, 4, 2][i] || 1; });
+    const initials = initialsOf(draft.name);
 
     const { data: card, error } = await sb.from('cards').insert({
       owner_id: this.userId, slug,
@@ -144,80 +188,22 @@ const Store = {
     let insertedLinks = [];
     if (draft.links.length) {
       const rows = draft.links.map((l, i) => ({
-        card_id: card.id, label: l.label, url: l.url, type: l.type, clicks: l.clicks || 0, position: i
+        card_id: card.id, label: l.label, url: l.url, type: l.type, clicks: 0, position: i
       }));
-      const { data } = await sb.from('card_links').insert(rows).select();
+      const { data, error: linkErr } = await sb.from('card_links').insert(rows).select();
+      if (linkErr) throw linkErr;
       insertedLinks = data || [];
     }
 
     this.state.onboarded = true;
     this.hydrateCard({ ...card, card_links: insertedLinks });
-
-    await this.seedDemoData();
     return this.state;
-  },
-
-  /* Demo contacts so the app doesn't look empty on first run — mirrors
-     the pre-Supabase local seed data, now written as real rows so it
-     survives reload and exercises every table end to end. */
-  async seedDemoData() {
-    const seed = [
-      { name: 'Sarah Chen', title: 'VP Product', company: 'Stripe', metAt: 'SaaStr Annual', daysAgo: 9, tags: ['SaaStr', 'Product'], location: 'San Francisco', stage: 'contacted', notes: 'Loved the follow-up angle. Promised to send portfolio link.', reminder: { text: 'Send portfolio link', dueInDays: -2 } },
-      { name: 'Mike Ross', title: 'Design Lead', company: 'Figma', metAt: 'SaaStr Annual', daysAgo: 6, tags: ['SaaStr', 'Design'], location: 'San Francisco', stage: 'meeting', reminder: { text: 'Coffee chat Thu — discuss design system project', dueInDays: 3 } },
-      { name: 'Priya Patel', title: 'Founder', company: 'Loomly', metAt: 'TechCrunch Disrupt', daysAgo: 21, tags: ['TechCrunch', 'Founder'], location: 'New York', stage: 'new', notes: 'Interested in team plan for her 6-person startup.' },
-      { name: 'James Okafor', title: 'Realtor', company: 'Compass', metAt: 'Referral', daysAgo: 34, tags: ['RealEstate'], location: 'Austin', stage: 'closed' },
-      { name: 'Elena Petrova', title: 'VP Product', company: 'Notion', metAt: 'AWS re:Invent', daysAgo: 45, tags: ['Product', 'reInvent'], location: 'Las Vegas', stage: 'new' },
-    ];
-
-    const byName = {};
-    for (const s of seed) {
-      const metTs = now() - s.daysAgo * DAY;
-      const { data: contact } = await sb.from('contacts').insert({
-        owner_id: this.userId, name: s.name, title: s.title, company: s.company,
-        email: s.name.toLowerCase().replace(/[^a-z]+/g, '.') + '@' + s.company.toLowerCase().replace(/[^a-z]/g, '') + '.com',
-        phone: '+1 (415) 555-0' + String(Math.floor(100 + Math.random() * 899)),
-        met_at: s.metAt, met_ts: iso(metTs), location: s.location, tags: s.tags,
-        notes: s.notes || '', stage: s.stage
-      }).select().single();
-      if (!contact) continue;
-      byName[s.name] = contact;
-
-      await sb.from('contact_history').insert([
-        { contact_id: contact.id, ts: iso(metTs), type: 'exchange', label: 'Exchanged cards — ' + s.metAt },
-        { contact_id: contact.id, ts: iso(metTs + 3600000), type: 'view', label: 'Viewed your card' }
-      ]);
-
-      if (s.reminder) {
-        await sb.from('reminders').insert({
-          contact_id: contact.id, text: s.reminder.text, due_at: iso(now() + s.reminder.dueInDays * DAY)
-        });
-      }
-    }
-
-    if (byName['Sarah Chen']) {
-      await sb.from('contact_history').insert({
-        contact_id: byName['Sarah Chen'].id, ts: iso(now() - DAY), type: 'click', label: 'Clicked "View portfolio"'
-      });
-    }
-
-    const evs = [
-      { type: 'view', label: 'Sarah Chen viewed your card · San Francisco (city-level)', contact: 'Sarah Chen' },
-      { type: 'click', label: 'Sarah Chen clicked "View portfolio" — high intent', contact: 'Sarah Chen' },
-      { type: 'save', label: 'Mike Ross saved you to contacts', contact: 'Mike Ross' },
-      { type: 'share', label: 'You shared your card (QR)', contact: null },
-    ];
-    for (const e of evs) {
-      const c = e.contact ? byName[e.contact] : null;
-      await sb.from('card_events').insert({ card_id: this.state.me.id, contact_id: c ? c.id : null, type: e.type, label: e.label });
-    }
-
-    await this.refreshContactsAndEvents();
   },
 
   /* ---- card ---- */
   async updateCardFields(patch) {
     const row = {};
-    if ('name' in patch) { row.name = patch.name; row.initials = patch.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+    if ('name' in patch) { row.name = patch.name; row.initials = initialsOf(patch.name); }
     if ('title' in patch) row.title = patch.title;
     if ('company' in patch) row.company = patch.company;
     if ('color' in patch) row.color = patch.color;
@@ -239,7 +225,10 @@ const Store = {
     await this.refreshEvents();
   },
   async recordLinkClick(linkId) {
-    await sb.rpc('record_link_click', { p_slug: this.state.me.slug, p_link_id: linkId });
+    /* Only increment locally if the RPC actually landed — otherwise the
+       Insights bar chart drifts upward from reality on every failed call. */
+    const { error } = await sb.rpc('record_link_click', { p_slug: this.state.me.slug, p_link_id: linkId });
+    if (error) throw error;
     const link = this.state.me.links.find(l => l.id === linkId);
     if (link) link.clicks++;
     await this.refreshEvents();
@@ -257,20 +246,24 @@ const Store = {
      a paper-card scan). `info` = {name,title,company,email,phone}; metAt
      comes from geotag auto-detection when opted in, otherwise blank. */
   async addContactFromShareBack(info, source) {
-    const geotag = this.state.me.geotag;
     const src = source || 'Shared their info back';
     const metTs = now();
 
+    /* met_at / location are left blank for the user to fill in. They were
+       previously hardcoded to 'SaaStr Annual' / 'San Francisco' whenever
+       the geotag toggle was on -- writing invented event and city data into
+       real contact records, and backing a "city-level location" claim the
+       product made to every card viewer but never actually collected. */
     const { data: contact, error } = await sb.from('contacts').insert({
       owner_id: this.userId, name: info.name, title: info.title || '', company: info.company || '',
       email: info.email || '', phone: info.phone || '',
-      met_at: geotag ? 'SaaStr Annual' : '', met_ts: iso(metTs),
-      location: geotag ? 'San Francisco' : '', tags: geotag ? ['SaaStr'] : [],
+      met_at: '', met_ts: iso(metTs),
+      location: '', tags: [],
       notes: '', stage: 'new'
     }).select().single();
     if (error) throw error;
 
-    const label = src + (geotag ? ' — SaaStr Annual' : '');
+    const label = src;
     await sb.from('contact_history').insert({ contact_id: contact.id, ts: iso(metTs), type: 'exchange', label });
     await sb.from('card_events').insert({
       card_id: this.state.me.id, contact_id: contact.id, type: 'save', label: info.name + ' — ' + src.toLowerCase()
@@ -280,20 +273,29 @@ const Store = {
     return this.contact(contact.id);
   },
 
+  /* supabase-js resolves with {error} rather than rejecting, so an
+     unchecked `await` treats a 403/500/offline write as success and the
+     caller fires a "✓ Saved" toast over data that was never persisted. */
   async setContactNotes(id, notes) {
-    await sb.from('contacts').update({ notes }).eq('id', id);
-    this.contact(id).notes = notes;
+    const { error } = await sb.from('contacts').update({ notes }).eq('id', id);
+    if (error) throw error;
+    const c = this.contact(id);
+    if (c) c.notes = notes;
   },
 
   async setContactStage(id, stage) {
-    await sb.from('contacts').update({ stage }).eq('id', id);
-    this.contact(id).stage = stage;
+    const { error } = await sb.from('contacts').update({ stage }).eq('id', id);
+    if (error) throw error;
+    const c = this.contact(id);
+    if (c) c.stage = stage;
   },
 
   async setContactMetAt(id, metAt) {
     const c = this.contact(id);
+    if (!c) throw new Error('Contact not found — try reloading.');
     const tags = [...new Set([...(c.tags || []), metAt.split(' ')[0]])];
-    await sb.from('contacts').update({ met_at: metAt, tags }).eq('id', id);
+    const { error } = await sb.from('contacts').update({ met_at: metAt, tags }).eq('id', id);
+    if (error) throw error;
     c.metAt = metAt; c.tags = tags;
   },
 
@@ -303,15 +305,19 @@ const Store = {
     const { data, error } = await sb.from('reminders')
       .insert({ contact_id: contactId, text, due_at: iso(due) }).select().single();
     if (error) throw error;
-    this.contact(contactId).reminders.push({ id: data.id, text: data.text, due: fromIso(data.due_at), done: false });
+    const c = this.contact(contactId);
+    if (c) c.reminders.push({ id: data.id, text: data.text, due: fromIso(data.due_at), done: false });
     return true;
   },
 
   async toggleReminder(contactId, reminderId) {
     const c = this.contact(contactId);
+    if (!c) throw new Error('Contact not found — try reloading.');
     const r = c.reminders.find(x => x.id === reminderId);
+    if (!r) throw new Error('Reminder not found — try reloading.');
     const done = !r.done;
-    await sb.from('reminders').update({ done }).eq('id', reminderId);
+    const { error } = await sb.from('reminders').update({ done }).eq('id', reminderId);
+    if (error) throw error;
     r.done = done;
     if (done) {
       const label = 'Completed: "' + r.text + '"';
