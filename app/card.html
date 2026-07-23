@@ -22,16 +22,16 @@
 <meta name="twitter:title" content="My digital business card">
 <meta name="twitter:description" content="Tap to save my details — no app download, no account needed.">
 
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=11">
 </head>
 <body>
 <div id="phone">
   <main id="pubcard" style="padding:28px 22px;overflow-y:auto;height:100%"></main>
-  <div id="toasts"></div>
+  <div id="toasts" role="status" aria-live="polite" aria-atomic="true"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/supabase-client.js?v=10"></script>
-<script src="js/public-card.js?v=10"></script>
+<script src="js/supabase-client.js?v=11"></script>
+<script src="js/public-card.js?v=11"></script>
 </body>
 </html>

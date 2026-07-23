@@ -107,8 +107,16 @@ This should be a build-time content hash rather than three hand-edited numbers.
 Until it is, a `sed` across all three is the safe way:
 
 ```bash
-cd app && sed -i '' 's/?v=[0-9]*/?v=NEW/g' index.html card.html sw.js && sed -i '' 's/nexus-shell-v[0-9]*/nexus-shell-vNEW/' sw.js
+cd app && sed -i '' 's/?v=[0-9]*/?v=NEW/g' index.html card.html landing.html sw.js && sed -i '' 's/nexus-shell-v[0-9]*/nexus-shell-vNEW/' sw.js
 ```
+
+Note `landing.html` is in that list: the CSS files carry `?v=N` too. They did
+not until recently, which meant every stylesheet change was served stale to
+returning visitors indefinitely — the HTML cache-busted its scripts and left
+its stylesheets alone.
+
+Watch the `sed` — it also rewrites `?v=N` inside `sw.js`'s own comments. Check
+`git diff` before committing.
 
 The service worker caches **only the app shell** — never Supabase responses.
 Contacts, reminders and card data are mutable and shared across devices, so a

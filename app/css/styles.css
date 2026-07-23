@@ -252,3 +252,70 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
   .get-own { transition: none; }
   .get-own:active { transform: none; }
 }
+
+/* ---- Pipeline card: tappable body + explicit Move control.
+   The card body is now a real <button> so keyboard and switch-control users
+   can reach it; previously the whole card was a <div onclick>, unreachable
+   without a mouse. Move is a separate control because HTML5 drag-and-drop
+   never fires on touch, leaving Pro's pipeline read-only on a phone. ---- */
+.pipe-card-open {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.pipe-card-open .c-name,
+.pipe-card-open .c-meta { display: block; }
+
+.pipe-move {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 8px; min-height: 32px; padding: 6px 10px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .01em;
+  background: var(--gray-1, #f4f4f6);
+  color: var(--gray-6, #52525b);
+  border: 1px solid var(--gray-2, #e9e9ee);
+  border-radius: 8px; cursor: pointer;
+}
+.pipe-move:hover { background: var(--gray-2, #e9e9ee); }
+.pipe-move:active { transform: scale(.97); }
+
+/* Keyboard focus was invisible everywhere: styles.css sets outline:none on
+   inputs and never restores it for buttons, links or selects. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand, #4f46e5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipe-move:active { transform: none; }
+}
+
+/* ---- Elements converted from <div onclick> to <button>.
+   They were unreachable by keyboard and switch control; these rules strip
+   the default button chrome so the visual result is identical. ---- */
+button.card-box.tappable {
+  display: block; width: 100%; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+button.pill.clickable,
+button.swatch {
+  font: inherit; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+button.pill.clickable { border: 1px solid transparent; }
+button.swatch { border: 0; padding: 0; }
+
+/* Tap targets. Apple HIG and WCAG 2.5.5 want 44px; these were ~22px for
+   pills and 34px for swatches — and the pills are primary controls
+   (filters, stage setters, follow-up suggestions). */
+.pill.clickable {
+  min-height: 40px; padding: 10px 14px;
+  display: inline-flex; align-items: center;
+}
+.swatch { width: 44px; height: 44px; }
+.back-link { padding: 12px 4px; margin-left: -4px; }
+
+/* Long unbroken input (a pasted URL, a 200-char name) was clipped and
+   unreadable: #phone is overflow:hidden, so it could not even scroll. */
+.biz-name, .biz-title, .c-name, .c-meta, .lbl { overflow-wrap: anywhere; }

@@ -44,7 +44,7 @@ const Contacts = {
       ...events.map(ev => ['met:' + ev, 'Met at ' + ev]),
       ['stale', 'No follow-up 30d'],
       ['vp', 'All VPs'],
-    ].map(([k, lbl]) => `<span class="pill clickable ${this.filter === k ? 'on' : ''}" onclick="Contacts.toggleFilter('${esc(k)}')">${esc(lbl)}</span>`).join('');
+    ].map(([k, lbl]) => `<button type="button" class="pill clickable ${this.filter === k ? 'on' : ''}" aria-pressed="${this.filter === k}" onclick="Contacts.toggleFilter('${esc(k)}')">${esc(lbl)}</button>`).join('');
 
     return `
       <div class="row">
@@ -86,17 +86,17 @@ const Contacts = {
   toggleFilter(f) { this.filter = this.filter === f ? null : f; App.renderTab(); },
 
   dueRow(d, overdue) {
-    return `<div class="card-box tappable" onclick="Contacts.detail('${d.contact.id}')">
+    return `<button type="button" class="card-box tappable" onclick="Contacts.detail('${d.contact.id}')">
       <div class="row">
         <div class="avatar">${esc(d.contact.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2))}</div>
         <div style="flex:1"><div class="c-name">${esc(d.contact.name)}</div>
           <div class="c-meta">“${esc(d.reminder.text)}”</div></div>
         <span class="pill ${overdue ? 'overdue' : ''}">${fmtDue(d.reminder.due)}</span>
-      </div></div>`;
+      </div></button>`;
   },
 
   rowHtml(c) {
-    return `<div class="card-box tappable" onclick="Contacts.detail('${c.id}')">
+    return `<button type="button" class="card-box tappable" onclick="Contacts.detail('${c.id}')">
       <div class="row">
         <div class="avatar">${esc(c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2))}</div>
         <div style="flex:1">
@@ -104,8 +104,8 @@ const Contacts = {
           <div class="c-meta">${esc(c.title)} @ ${esc(c.company)}</div>
           <div class="c-meta">${c.metAt ? '📍 ' + esc(c.metAt) + ' · ' : ''}${fmtAgo(c.metTs)}</div>
         </div>
-        ${c.stage ? `<span class="pill">${Pipeline.stageName(c.stage)}</span>` : ''}
-      </div></div>`;
+        ${c.stage ? `<span class="pill">${esc(Pipeline.stageName(c.stage))}</span>` : ''}
+      </div></button>`;
   },
 
   detail(id) { this.openId = id; App.go('contacts'); },
@@ -157,8 +157,8 @@ const Contacts = {
 
       <p class="section-label">Pipeline stage</p>
       ${Store.isPro() ? `<div class="chips" style="padding-top:2px">${Pipeline.STAGES.map(s =>
-        `<span class="pill clickable ${c.stage === s.id ? 'on' : ''}" onclick="Contacts.setStage('${c.id}','${s.id}')">${s.name}</span>`).join('')}</div>`
-      : `<p class="sub">Pipeline stages are a Pro feature. <span class="pill clickable brand" onclick="Paywall.open()">See plans</span></p>`}
+        `<button type="button" class="pill clickable ${c.stage === s.id ? 'on' : ''}" aria-pressed="${c.stage === s.id}" onclick="Contacts.setStage('${c.id}','${s.id}')">${esc(s.name)}</button>`).join('')}</div>`
+      : `<p class="sub">Pipeline stages are a Pro feature. <button type="button" class="pill clickable brand" onclick="Paywall.open()">See plans</button></p>`}
 
       <p class="section-label">Interaction history</p>
       <div class="card-box">

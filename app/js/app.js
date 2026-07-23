@@ -12,7 +12,11 @@ const App = {
   go(tab) {
     this.tab = tab;
     if (tab !== 'contacts') Contacts.openId = null;
-    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(b => {
+      const on = b.dataset.tab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
     this.renderTab();
   },
 
@@ -33,6 +37,8 @@ const App = {
     const overdue = Store.dueReminders().filter(d => d.reminder.due < Date.now()).length;
     const b = document.getElementById('due-badge');
     b.textContent = overdue;
+    // A bare number reads as nothing useful; name what it counts.
+    b.setAttribute('aria-label', overdue === 1 ? '1 follow-up overdue' : overdue + ' follow-ups overdue');
     b.classList.toggle('hidden', overdue === 0);
   }
 };

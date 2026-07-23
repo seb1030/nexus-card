@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Nexus">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=11">
 </head>
 <body>
 <div id="phone">
@@ -26,11 +26,11 @@
   <!-- MAIN APP -->
   <div id="app" class="hidden">
     <main id="view"></main>
-    <nav id="tabbar">
-      <button data-tab="card" class="tab active"><span class="tab-ic">▣</span>My Card</button>
-      <button data-tab="contacts" class="tab"><span class="tab-ic">☰</span>Contacts<span id="due-badge" class="badge hidden"></span></button>
-      <button data-tab="pipeline" class="tab"><span class="tab-ic">▤</span>Pipeline</button>
-      <button data-tab="analytics" class="tab"><span class="tab-ic">◔</span>Insights</button>
+    <nav id="tabbar" role="tablist" aria-label="Main">
+      <button data-tab="card" class="tab active" role="tab" aria-selected="true"><span class="tab-ic" aria-hidden="true">▣</span>My Card</button>
+      <button data-tab="contacts" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">☰</span>Contacts<span id="due-badge" class="badge hidden" role="status" aria-live="polite"></span></button>
+      <button data-tab="pipeline" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">▤</span>Pipeline</button>
+      <button data-tab="analytics" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">◔</span>Insights</button>
     </nav>
   </div>
 
@@ -39,18 +39,18 @@
   <div id="sheet" class="hidden"></div>
 
   <!-- TOASTS -->
-  <div id="toasts"></div>
+  <div id="toasts" role="status" aria-live="polite" aria-atomic="true"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/qrcode.js?v=10"></script>
-<script src="js/supabase-client.js?v=10"></script>
-<script src="js/store.js?v=10"></script>
-<script src="js/onboarding.js?v=10"></script>
-<script src="js/card.js?v=10"></script>
-<script src="js/contacts.js?v=10"></script>
-<script src="js/pipeline.js?v=10"></script>
-<script src="js/analytics.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/qrcode.js?v=11"></script>
+<script src="js/supabase-client.js?v=11"></script>
+<script src="js/store.js?v=11"></script>
+<script src="js/onboarding.js?v=11"></script>
+<script src="js/card.js?v=11"></script>
+<script src="js/contacts.js?v=11"></script>
+<script src="js/pipeline.js?v=11"></script>
+<script src="js/analytics.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
 </body>
 </html>

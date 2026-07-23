@@ -94,7 +94,7 @@ const CardView = {
           <label class="switch"><input type="checkbox" id="ed-email" ${me.fields.email ? 'checked' : ''}><i></i></label></div>
         <p class="section-label">Brand color</p>
         <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
-          `<div class="swatch ${me.color === c ? 'on' : ''}" style="background:${c}" onclick="CardView.saveColor('${c}')"></div>`).join('')}</div>
+          `<button type="button" class="swatch ${me.color === c ? 'on' : ''}" style="background:${c}" aria-label="Brand colour ${c}" aria-pressed="${me.color === c}" onclick="CardView.saveColor('${c}')"></button>`).join('')}</div>
         <button class="btn" onclick="CardView.saveEdit()">Save</button>
       </div>`);
   },
@@ -221,9 +221,9 @@ const PostExchange = {
       </div>
       <p class="section-label">Follow-up suggestions</p>
       <div class="chips" style="padding-top:2px">
-        <span class="pill clickable" onclick="PostExchange.remind('${ct.id}','Send LinkedIn connection request',3)">Send LinkedIn request</span>
-        <span class="pill clickable" onclick="PostExchange.remind('${ct.id}','Schedule coffee chat',7)">Schedule coffee chat</span>
-        <span class="pill clickable" onclick="PostExchange.remind('${ct.id}','Send portfolio link',3)">Send portfolio link</span>
+        <button type="button" class="pill clickable" onclick="PostExchange.remind('${ct.id}','Send LinkedIn connection request',3)">Send LinkedIn request</button>
+        <button type="button" class="pill clickable" onclick="PostExchange.remind('${ct.id}','Schedule coffee chat',7)">Schedule coffee chat</button>
+        <button type="button" class="pill clickable" onclick="PostExchange.remind('${ct.id}','Send portfolio link',3)">Send portfolio link</button>
       </div>
       <div class="row" style="gap:8px;margin-top:14px">
         <button class="btn secondary" onclick="PostExchange.remind('${ct.id}','Follow up',3)">Remind me in 3 days</button>
