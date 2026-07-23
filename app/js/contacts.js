@@ -54,8 +54,8 @@ const Contacts = {
         <button class="btn small secondary" onclick="CardScanner.open()">+ Add</button>
       </div>
       <div class="search-wrap" style="margin-top:12px">
-        <input type="text" placeholder="Search name, company, event, city…" value="${esc(this.query)}"
-          oninput="Contacts.query=this.value;App.renderTab(true)">
+        <input type="text" id="ct-search" placeholder="Search name, company, event, city…" value="${esc(this.query)}"
+          oninput="Contacts.onSearch(this, event)">
       </div>
       <div class="chips">${smartChips}</div>
 
@@ -84,6 +84,16 @@ const Contacts = {
     return list;
   },
   toggleFilter(f) { this.filter = this.filter === f ? null : f; App.renderTab(); },
+
+  /* Debounced so typing does not rebuild every row on each keystroke, and
+     composition-aware so IME input is never interrupted mid-word. */
+  _searchTimer: null,
+  onSearch(el, ev) {
+    this.query = el.value;
+    if (ev && ev.isComposing) return;
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => App.renderTab(true), 150);
+  },
 
   dueRow(d, overdue) {
     return `<button type="button" class="card-box tappable" onclick="Contacts.detail('${d.contact.id}')">

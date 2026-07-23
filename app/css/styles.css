@@ -345,3 +345,63 @@ button.swatch { border: 0; padding: 0; }
 @media (prefers-reduced-motion: reduce) {
   .sk { animation: none; }
 }
+
+/* ---- Desktop (≥900px).
+   Below this the phone frame is right — the card and onboarding genuinely
+   are phone-shaped surfaces. But Contacts and Pipeline are desk work, and a
+   4-column kanban at 200px per column inside a 430px frame is unusable on a
+   1440px screen: the board scrolls horizontally to show two columns while
+   most of the display sits empty. The tab bar becomes a sidebar and the
+   content area gets the room it needs. The public card keeps the frame at
+   every width — a card should look like a card. ---- */
+@media (min-width: 900px) {
+  body { background: var(--bg); }
+
+  /* The grid must sit on #app: #view and #tabbar are its children, not
+     #phone's, so grid placement declared on #phone never reaches them. */
+  #phone {
+    max-width: 1080px; height: 100dvh; margin: 0 auto;
+    border-radius: 0; box-shadow: none;
+  }
+  #app:not(.hidden) {
+    display: grid; grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+    flex: 1; min-height: 0;
+  }
+
+  #tabbar {
+    grid-column: 1; grid-row: 1;
+    flex-direction: column; justify-content: flex-start; gap: 2px;
+    border-top: 0; border-right: 1px solid var(--gray-2);
+    padding: 24px 12px;
+  }
+  .tab {
+    flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
+    font-size: 14px; padding: 10px 12px; border-radius: 10px;
+  }
+  .tab.active { background: #eef2ff; }
+  .tab-ic { margin: 0; width: 20px; height: 20px; }
+  .badge { position: static; margin-left: auto; }
+
+  #view { grid-column: 2; grid-row: 1; padding: 32px 40px; min-width: 0; overflow-y: auto; }
+
+  /* Real kanban: columns share the width instead of scrolling. */
+  .pipe-board { overflow-x: visible; margin: 0; padding-left: 0; padding-right: 0; }
+  .pipe-col { flex: 1 1 0; width: auto; min-width: 0; }
+
+  /* The card itself stays phone-proportioned — it is a business card. */
+  .biz-card { max-width: 420px; }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* Sheets become a centred dialog rather than a bottom sheet. */
+  #sheet {
+    left: 50%; right: auto; bottom: auto; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(460px, 92vw); max-height: 86dvh;
+    border-radius: 18px; padding-bottom: 20px;
+  }
+  .sheet-handle { display: none; }
+
+  /* Onboarding and the recipient preview stay card-width and centred. */
+  #onboarding, #recipient { max-width: 460px; margin: 0 auto; }
+}

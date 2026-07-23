@@ -2,18 +2,19 @@
 const Analytics = {
   render() {
     const s = Store.state;
-    /* These are real counts over the events actually loaded. Note the
-       ceiling: Store.refreshEvents() caps at 50 rows, so once a card passes
-       50 lifetime events these plateau. They are labelled "recent" rather
-       than "30d" because no date window is applied — an accurate small
-       number beats a confident wrong one. Replace with a server-side
-       aggregate (see card_stats RPC in the review) to get real windows. */
-    const views = s.events.filter(e => e.type === 'view').length;
-    const saves = s.events.filter(e => e.type === 'save').length;
-    const shares = s.events.filter(e => e.type === 'share').length;
-    const capped = s.events.length >= 50;
+    /* Counts come from the card_stats RPC — a real aggregate over a real
+       date window. They were previously derived from Store.state.events,
+       which refreshEvents() caps at 50 rows, so past 50 lifetime events the
+       numbers stopped rising and then *fell* as older views scrolled out of
+       the window. The feed below is still the capped 50; only the headline
+       figures are aggregated. */
+    const st = s.stats;
+    const views = st ? st.views : 0;
+    const saves = st ? st.saves : 0;
+    const shares = st ? st.shares : 0;
+    const windowDays = st ? st.days : 30;
     const maxClicks = Math.max(1, ...s.me.links.map(l => Number(l.clicks) || 0));
-    const hasActivity = s.events.length > 0;
+    const hasActivity = st ? st.total_events > 0 : s.events.length > 0;
     const icons = { view: '👀', save: '💾', click: '🔗', share: '📤', reminder_done: '✅' };
     const pro = Store.isPro();
     const allRems = s.contacts.flatMap(c => c.reminders);
@@ -38,14 +39,14 @@ const Analytics = {
       <p class="sub">Not just scan counts — who engaged, with what, and when.</p>
 
       <div class="stat-grid" style="margin-top:14px">
-        <div class="stat"><b>${views}</b><span>Card views</span></div>
+        <div class="stat"><b>${views}</b><span>Card views (${windowDays}d)</span></div>
         <div class="stat"><b>${saves}</b><span>Saved to contacts</span></div>
         <div class="stat"><b>${shares}</b><span>Times shared</span></div>
         <div class="stat"><b>${views ? Math.round(saves / views * 100) + '%' : '—'}</b><span>View → save rate</span></div>
         <div class="stat"><b>${allRems.length ? followThrough + '%' : '—'}</b><span>Follow-through rate<br>(reminders completed)</span></div>
       </div>
       <p class="sub" style="margin-top:8px;font-size:12px">
-        Follow-through — not cards blasted — is the metric that matters.${capped ? ' Counts cover your most recent 50 events.' : ''}</p>
+        Follow-through — not cards blasted — is the metric that matters.</p>
 
       ${s.me.links.length ? `
         <p class="section-label">Clicks per link</p>

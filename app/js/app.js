@@ -22,13 +22,24 @@ const App = {
 
   renderTab(keepFocus) {
     const view = document.getElementById('view');
+    /* Restore focus to the element that HAD it, at the caret position it
+       had. The old version grabbed the first input[type=text] in the view
+       and slammed the caret to the end — so typing "stipe", clicking back
+       to fix the typo and typing "r" produced "stiper", and on the contact
+       detail view it moved focus to a different field entirely. */
     const active = keepFocus ? document.activeElement : null;
+    const focusId = active && active.id;
+    const selStart = active && active.selectionStart;
+    const selEnd = active && active.selectionEnd;
     const pos = view.scrollTop;
     view.innerHTML = this.views[this.tab]();
     view.scrollTop = pos;
-    if (active && active.tagName === 'INPUT') {
-      const again = view.querySelector('input[type=text]');
-      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    if (focusId) {
+      const again = view.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(focusId) : focusId));
+      if (again) {
+        again.focus();
+        try { again.setSelectionRange(selStart, selEnd); } catch (e) { /* not a text input */ }
+      }
     }
     this.refreshBadge();
   },

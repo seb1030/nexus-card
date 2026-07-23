@@ -20,8 +20,13 @@ function slugify(name) {
    renders as U+FFFD and cannot be encoded as valid UTF-8 for Postgres. */
 function initialsOf(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  const chars = parts.map(w => [...w][0]).filter(Boolean);
-  return (chars.join('').slice(0, 2) || 'NC').toUpperCase();
+  // Both the per-word pick and the 2-character cap must count graphemes, not
+  // UTF-16 code units: [...] for the pick (w[0] on an emoji yields a lone
+  // surrogate, invalid UTF-8 for Postgres) and slice(0,2) on the array
+  // rather than the string (an emoji is 2 code units, so a string slice
+  // would consume both slots).
+  const chars = parts.map(w => [...w][0]).filter(Boolean).slice(0, 2);
+  return (chars.join('') || 'NC').toUpperCase();
 }
 
 const DEFAULT_STATE = () => ({
@@ -37,7 +42,8 @@ const DEFAULT_STATE = () => ({
     links: []                   // {id,label,url,type,clicks}
   },
   contacts: [],
-  events: []
+  events: [],
+  stats: null              // server-side aggregate; see refreshStats()
 });
 
 const Store = {
@@ -125,6 +131,17 @@ const Store = {
     return this.state.plan;
   },
 
+  /* Server-side aggregate over a real date window. The old numbers were
+     derived from the 50-row event feed, so they plateaued and then declined
+     as older events scrolled out. Cached on state so the Insights render
+     stays synchronous. */
+  async refreshStats(days) {
+    const { data, error } = await sb.rpc('card_stats', { p_days: days || 30 });
+    if (error) throw error;
+    this.state.stats = data;
+    return data;
+  },
+
   async refreshEvents() {
     if (!this.state.me.id) return;
     const { data, error } = await sb.from('card_events').select('*')
@@ -143,6 +160,8 @@ const Store = {
     if (error) throw error;
     this.state.contacts = (contacts || []).map(c => this.hydrateContact(c));
     await this.refreshEvents();
+    // Non-fatal: the feed still renders if the aggregate fails.
+    try { await this.refreshStats(30); } catch (err) { console.warn('stats unavailable', err); }
   },
 
   isPro() { return this.state.plan === 'pro' || this.state.plan === 'team'; },
@@ -354,10 +373,21 @@ function fmtAgo(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 function fmtDue(ts) {
-  const d = ts - now();
-  if (d < 0) return Math.max(1, Math.round(-d / DAY)) + ' days overdue';
-  if (d < DAY) return 'due today';
-  if (d < 2 * DAY) return 'due tomorrow';
+  /* Buckets on calendar days in the viewer's own timezone, not on elapsed
+     milliseconds. Comparing (due - now) against 24h meant a reminder due at
+     8am tomorrow read "due today" when checked at 11pm — and anything less
+     than a day overdue rendered as "1 days overdue", both wrong and
+     ungrammatical. setHours works in local time, which is what the user
+     reasons in; due_at itself stays an absolute timestamptz. */
+  const startOfDay = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const days = Math.round((startOfDay(ts) - startOfDay(now())) / DAY);
+  if (ts < now()) {
+    if (days === 0) return 'overdue';
+    const n = Math.abs(days);
+    return n + (n === 1 ? ' day overdue' : ' days overdue');
+  }
+  if (days === 0) return 'due today';
+  if (days === 1) return 'due tomorrow';
   return 'due ' + new Date(ts).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 function esc(s) {
