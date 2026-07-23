@@ -70,7 +70,27 @@ function render() {
     </div>
     <div id="shareback"></div>
     <p class="sub" style="text-align:center;margin-top:16px">No app download. No account. Just this card.</p>
-    <p class="sub" style="text-align:center;margin-top:10px;font-size:12px">🔒 ${esc(firstName())} is notified when this card is viewed. No location is collected.</p>`;
+    <p class="sub" style="text-align:center;margin-top:10px;font-size:12px">🔒 ${esc(firstName())} is notified when this card is viewed. No location is collected.</p>
+
+    <!-- The acquisition loop. Without this the public card is a dead end:
+         a recipient can view, tap links and share back, and is never once
+         offered a card of their own. This is the only surface the product
+         puts in front of strangers. -->
+    <a class="get-own" href="index.html?ref=card">
+      <span class="get-own-mark">▣</span>
+      <span>
+        <b>Get your own free card</b>
+        <span class="sub">60 seconds, no app, no signup</span>
+      </span>
+      <span class="get-own-arrow">→</span>
+    </a>`;
+
+  /* Shown to everyone, not only to people who tapped "Save to Contacts".
+     Previously the share-back form was reachable only through that button,
+     so anyone who tapped a link or left without saving never saw the
+     reverse-capture form at all -- and that form is the entire reason the
+     owner learns who scanned their card. */
+  showShareBack();
 }
 
 function renderNotFound() {
@@ -156,12 +176,12 @@ function saveContact() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast('✓ Contact card downloaded');
-    fireAndForget(sb.rpc('record_card_view', { p_slug: slug }));
   } catch (err) {
     console.error(err);
     toast('Could not download the contact card');
   }
-  showShareBack();
+  // The form is already on the page; just draw attention to it.
+  document.getElementById('shareback')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 function shareThisCard() {
@@ -173,35 +193,60 @@ function shareThisCard() {
   }
 }
 
-function showShareBack() {
-  document.getElementById('shareback').innerHTML = `
+function showShareBack(scroll) {
+  const el = document.getElementById('shareback');
+  if (!el || el.dataset.done === '1') return;
+  el.innerHTML = `
     <div class="card-box" style="margin-top:14px;text-align:left">
-      <b>Share your info back with ${esc(firstName())}?</b>
-      <p class="sub" style="margin:4px 0 10px">Optional — only what you type here is shared.</p>
-      <label class="field"><span>Name</span><input type="text" id="sb-name" placeholder="Your name"></label>
-      <label class="field"><span>Title & company</span><input type="text" id="sb-titleco" placeholder="VP Product @ Stripe"></label>
-      <label class="field"><span>Email</span><input type="email" id="sb-email" placeholder="you@company.com"></label>
+      <b>Send ${esc(firstName())} your info back?</b>
+      <p class="sub" style="margin:4px 0 10px">Takes 15 seconds. Optional.</p>
+      <label class="field"><span>Name</span><input type="text" id="sb-name" maxlength="100" placeholder="Your name"></label>
+      <label class="field"><span>Title &amp; company</span><input type="text" id="sb-titleco" maxlength="160" placeholder="VP Product @ Stripe"></label>
+      <label class="field"><span>Email</span><input type="email" id="sb-email" maxlength="320" placeholder="you@company.com"></label>
       <div class="row" style="gap:8px">
-        <button class="btn" onclick="submitShareBack()">Share my info</button>
+        <button class="btn" id="sb-submit" onclick="submitShareBack(this)">Share my info</button>
         <button class="btn secondary" onclick="dismissShareBack()">No thanks</button>
       </div>
+      <!-- The recipient is a third party whose data is about to land in a
+           stranger's CRM. They need to be told that, and where to complain. -->
+      <p class="sub" style="margin-top:10px;font-size:11px">
+        Your details go to ${esc(CARD?.name || 'the card owner')} and are stored in their Nexus Card contacts.
+        See our <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.
+      </p>
     </div>`;
-  document.getElementById('shareback').scrollIntoView({ behavior: 'smooth' });
+  if (scroll) el.scrollIntoView({ behavior: 'smooth' });
 }
 
-function dismissShareBack() { document.getElementById('shareback').innerHTML = ''; }
+function dismissShareBack() {
+  const el = document.getElementById('shareback');
+  el.dataset.done = '1';
+  el.innerHTML = '';
+}
 
-async function submitShareBack() {
+async function submitShareBack(btn) {
   const name = document.getElementById('sb-name').value.trim();
   if (!name) { toast('Enter at least a name'); return; }
   const tc = document.getElementById('sb-titleco').value.trim();
   const [title, company] = tc.includes('@') ? tc.split('@').map(s => s.trim()) : [tc, ''];
   const email = document.getElementById('sb-email').value.trim();
-  const { error } = await sb.rpc('submit_share_back', {
+
+  // No in-flight guard meant a double-tap on a slow connection inserted the
+  // same person into the owner's CRM twice.
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const { data, error } = await sb.rpc('submit_share_back', {
     p_slug: slug, p_name: name, p_title: title || '', p_company: company || '', p_email: email, p_phone: ''
   });
+  if (btn) { btn.disabled = false; btn.textContent = 'Share my info'; }
+
   if (error) { toast('Could not send: ' + error.message); return; }
-  document.getElementById('shareback').innerHTML = `
+  // The RPC returns void on the old schema and boolean on the new one. A
+  // silent `return` inside it (stale slug, deleted card) previously showed
+  // the visitor "Sent!" when nothing had been written.
+  if (data === false) { toast('This card is no longer available.'); return; }
+
+  const el = document.getElementById('shareback');
+  el.dataset.done = '1';
+  el.innerHTML = `
     <div class="card-box" style="margin-top:14px;text-align:center">
       <b>✓ Sent!</b>
       <p class="sub" style="margin-top:6px">${esc(firstName())} will see you as a new contact.</p>

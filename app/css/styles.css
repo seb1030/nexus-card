@@ -221,3 +221,34 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 .hist-item { display: flex; gap: 8px; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--gray-2); color: var(--gray-7); }
 .hist-item:last-child { border: 0; }
 .hist-item time { color: var(--gray-5); flex: none; width: 64px; font-size: 12px; }
+
+/* ---- "Get your own free card" — the acquisition loop on the public card.
+   Deliberately styled as a distinct surface rather than another .btn: it is
+   Nexus speaking, not the card owner, and it should not compete with the
+   owner's own links or the Save/Share actions above it. ---- */
+.get-own {
+  display: flex; align-items: center; gap: 12px;
+  margin: 22px 0 8px; padding: 14px 16px;
+  background: var(--card, #fff);
+  border: 1px solid var(--gray-2, #e9e9ee);
+  border-radius: 14px;
+  text-decoration: none; color: inherit;
+  box-shadow: 0 1px 2px rgba(17,17,20,.04), 0 6px 18px rgba(17,17,20,.06);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.get-own:active { transform: scale(.985); }
+.get-own > span:nth-child(2) { flex: 1; display: block; }
+.get-own b { display: block; font-size: 14px; }
+.get-own .sub { display: block; font-size: 12px; margin-top: 1px; }
+.get-own-mark {
+  width: 34px; height: 34px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; font-size: 16px;
+  background: #4f46e5; color: #fff;
+}
+.get-own-arrow { color: var(--gray-5, #71717a); font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .get-own { transition: none; }
+  .get-own:active { transform: none; }
+}
