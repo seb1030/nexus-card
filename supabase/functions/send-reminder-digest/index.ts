@@ -58,10 +58,10 @@ function buildEmail(rows) {
   const items = rows.map((r) => {
     const who = r.contact_name || "a contact";
     const overdue = new Date(r.due_at) < new Date(Date.now() - 24 * 3600 * 1000);
-    return `<li style="margin:0 0 10px">
+    return `<li class="item" style="margin:0 0 10px">
       <b>${escapeHtml(who)}</b>${r.contact_company ? ` &middot; ${escapeHtml(r.contact_company)}` : ""}<br>
-      <span style="color:#3f3f46">${escapeHtml(r.text)}</span>
-      ${overdue ? ` <span style="color:#b91c1c">(overdue)</span>` : ""}
+      <span class="muted">${escapeHtml(r.text)}</span>
+      ${overdue ? ` <span style="color:#dc2626">(overdue)</span>` : ""}
     </li>`;
   }).join("");
 
@@ -70,17 +70,52 @@ function buildEmail(rows) {
     ? `Follow up with ${rows[0].contact_name || "a contact"}`
     : `${n} follow-ups are due`;
 
-  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#14140f">
-    <h1 style="font-size:20px;margin:0 0 4px">${n === 1 ? "One follow-up is due" : `${n} follow-ups are due`}</h1>
-    <p style="color:#57564e;font-size:14px;margin:0 0 18px">You said you'd circle back. Here's who's waiting.</p>
-    <ul style="padding-left:18px;font-size:15px;line-height:1.5">${items}</ul>
-    <p style="margin:24px 0 0">
-      <a href="${escapeHtml(APP_URL)}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;display:inline-block;font-size:14px">Open Nexus Card</a>
-    </p>
-    <p style="color:#6e6d64;font-size:12px;margin-top:24px">
-      You're getting this because you set a follow-up reminder in Nexus Card.
-    </p>
-  </div>`;
+  const preheader = n === 1
+    ? `${rows[0].contact_name || "A contact"}: ${rows[0].text}`
+    : `${n} people are waiting to hear back from you.`;
+
+  /* A full document, not a fragment. Without the color-scheme declarations
+     Gmail force-inverts its own palette onto the inline styles -- which
+     turned the indigo CTA into washed-out lavender with dark text in dark
+     mode. Declaring support tells clients we handle theming ourselves.
+     Colours below are chosen to hold up under both schemes. */
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style>
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  .wrap { background:#ffffff; color:#14140f; }
+  .muted { color:#57564e; }
+  .fine  { color:#6e6d64; }
+  .cta   { background:#4f46e5 !important; color:#ffffff !important; }
+  @media (prefers-color-scheme: dark) {
+    .wrap { background:#14140f !important; color:#f4f4f2 !important; }
+    .muted { color:#b9b8b2 !important; }
+    .fine  { color:#8f8e88 !important; }
+    .item  { color:#f4f4f2 !important; }
+    .cta   { background:#6366f1 !important; color:#ffffff !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0">
+<div style="display:none;font-size:1px;color:transparent;max-height:0;overflow:hidden">${escapeHtml(preheader)}</div>
+<div class="wrap" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+  <h1 style="font-size:20px;line-height:26px;margin:0 0 4px">${n === 1 ? "One follow-up is due" : `${n} follow-ups are due`}</h1>
+  <p class="muted" style="font-size:14px;margin:0 0 18px">You said you'd circle back. Here's who's waiting.</p>
+  <ul style="padding-left:18px;font-size:15px;line-height:1.5;margin:0">${items}</ul>
+  <p style="margin:24px 0 0">
+    <a class="cta" href="${escapeHtml(APP_URL)}" style="background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;display:inline-block;font-size:15px;font-weight:600">Open Nexus Card</a>
+  </p>
+  <p class="fine" style="font-size:12px;margin-top:24px">
+    You're getting this because you set a follow-up reminder in Nexus Card.
+  </p>
+</div>
+</body>
+</html>`;
 
   return { subject, html };
 }
