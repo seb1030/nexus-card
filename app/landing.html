@@ -2,8 +2,201 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=landing-v1.html">
-<title>Nexus Card</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Card — The business card that actually follows up</title>
+<meta name="description" content="You met 20 people this week. You'll follow up with three. Nexus is a digital business card that remembers the rest — and emails you when it's time to circle back.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nexus Card">
+<meta property="og:title" content="Nexus Card — the business card that actually follows up">
+<meta property="og:description" content="You met 20 people this week. You'll follow up with three. Nexus remembers where you met them, what you promised, and emails you when it's time to circle back.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Nexus Card — the business card that actually follows up">
+<meta name="twitter:description" content="You met 20 people this week. You'll follow up with three. Nexus makes sure the rest don't go cold.">
+<link rel="stylesheet" href="css/landing.css">
 </head>
-<body><p>Redirecting to <a href="landing-v1.html">the landing page</a>…</p></body>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="#top">▣ Nexus Card</a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <a class="btn btn-sm" href="index.html">Get your card</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Digital business card + follow-up</p>
+      <h1>You met 20 people this week.<br>You'll follow up with three.</h1>
+      <p class="lede">Popl and HiHello end at the handshake. Nexus starts there — it remembers where you met someone, what you promised, and emails you when it's time to circle back.</p>
+      <div class="cta-row">
+        <a class="btn" href="index.html">Create your free card →</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="fine">Free forever · No hardware · Recipients never download an app</p>
+    </div>
+    <div class="hero-phone">
+      <div class="phone">
+        <div class="mini-card">
+          <div class="mini-logo">AR</div>
+          <div class="mini-name">Alex Rivera</div>
+          <div class="mini-title">Product Designer @ Acme</div>
+          <div class="mini-btn">Book a call</div>
+          <div class="mini-btn">View portfolio</div>
+          <div class="mini-btn alt">Save to Contacts</div>
+        </div>
+        <div class="mini-toast">⏰ Follow up with Sarah Chen — due today</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="strip">
+  <div class="wrap">Built for people who meet twenty people a week and lose track of nineteen</div>
+</section>
+
+<section class="pain">
+  <div class="wrap">
+    <h2>Sound familiar?</h2>
+    <p class="sect-sub">Real complaints from users of the current card apps.</p>
+    <div class="grid3">
+      <div class="quote">“I have 200 contacts and <b>no idea where I met</b> any of them.”</div>
+      <div class="quote">“No reminders or task management. <b>No automated follow-ups.</b>”</div>
+      <div class="quote">“Basic analytics — scan counts only, <b>no engagement detail</b>.”</div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <div class="grid3">
+      <div class="step"><span class="step-n">1</span><h3>Build your card in 60 seconds</h3>
+        <p>Let your phone autofill it. No sign-up wall, no email-verification gate. Pick a colour, add your links, done.</p></div>
+      <div class="step"><span class="step-n">2</span><h3>Share it anywhere</h3>
+        <p>QR code or link. They scan with their camera and your card opens in their browser — <b>they never download an app</b>. They can send their details straight back to you, no typing on your end.</p></div>
+      <div class="step"><span class="step-n">3</span><h3>Nexus makes sure you follow up</h3>
+        <p>Every contact keeps where you met, what you talked about, and what you promised. When a follow-up comes due, Nexus emails you — it doesn't wait for you to open the app.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="exchange" id="exchange">
+  <div class="wrap">
+    <h2>Watch an exchange happen</h2>
+    <p class="sect-sub">Ten seconds at a conference booth. No app download for Sarah, no typing for you.</p>
+    <div class="ex-stage">
+      <div class="ex-phone">
+        <div class="ex-label">You</div>
+        <div class="ex-screen" id="ex-you"></div>
+      </div>
+      <div class="ex-path">
+        <svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+          <path class="ex-line" d="M4 30 C 60 6, 140 54, 196 30" fill="none"/>
+        </svg>
+        <div class="ex-dot" id="ex-dot"></div>
+      </div>
+      <div class="ex-phone">
+        <div class="ex-label">Sarah</div>
+        <div class="ex-screen" id="ex-them"></div>
+      </div>
+    </div>
+    <div class="ex-steps" id="ex-steps"></div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <h2>Everything the handshake apps forgot</h2>
+    <div class="grid3">
+      <div class="feat"><div class="feat-ic">⏰</div><h3>Unlimited follow-up reminders</h3><p>On every plan, including free. We will never paywall the follow-up loop — it's why Nexus exists.</p></div>
+      <div class="feat"><div class="feat-ic">📇</div><h3>Two-way capture</h3><p>A share-back form sits on every card. They fill in three fields and land in your contacts — with the context attached.</p></div>
+      <div class="feat"><div class="feat-ic">📍</div><h3>“Where we met,” remembered</h3><p>Tag every contact with the event you met at, then search “everyone I met at SaaStr.” The thing no card app bothers to store.</p></div>
+      <div class="feat"><div class="feat-ic">👀</div><h3>Know who opened it</h3><p>Know when someone opens your card and what they tapped. No location collected at all, and the viewer is told plainly.</p></div>
+      <div class="feat"><div class="feat-ic">▤</div><h3>Pipeline Lite</h3><p>Four stages, drag and drop. Not a CRM to maintain — a nudge to move relationships forward.</p></div>
+      <div class="feat"><div class="feat-ic">🔎</div><h3>Smart search</h3><p>“Who haven't I followed up with in 30 days?” “All VPs of Product.” Your network, actually queryable.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="privacy">
+  <div class="wrap privacy-inner">
+    <div>
+      <h2>Tracking you can defend at a dinner party</h2>
+      <p>Most card apps track viewers silently and precisely. Nexus collects <b>no viewer location at all</b> — just that the card was opened and what was tapped — and every card carries a visible disclosure. Your network shouldn't cost you their trust.</p>
+    </div>
+    <div class="privacy-card">
+      <div>🔒 <b>What viewers see on your card:</b></div>
+      <p>“Alex is notified when this card is viewed. No location is collected.”</p>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <h2>Pricing that doesn't hold your follow-ups hostage</h2>
+    <p class="sect-sub">Reminders are unlimited on every plan. Paid tiers add visibility and team tooling.</p>
+    <div class="grid3 tiers">
+      <div class="tier">
+        <h3>Free</h3><div class="price">$0<span> forever</span></div>
+        <ul>
+          <li>Full card design + QR & link sharing</li>
+          <li>Unlimited shares & contact notes</li>
+          <li><b>Unlimited follow-up reminders</b></li>
+          <li>Share-back capture from every card</li>
+          <li>Basic analytics (views, saves)</li>
+          <li><b>Follow-up emails</b> when a reminder comes due</li>
+        </ul>
+        <a class="btn btn-ghost full" href="index.html">Start free</a>
+      </div>
+      <div class="tier hot">
+        <div class="tag">Most popular</div>
+        <h3>Pro</h3><div class="price">$6<span>/mo · $49/yr</span></div>
+        <ul>
+          <li>Everything in Free</li>
+          <li>Live activity feed — every view and tap, as it happens</li>
+          <li>Pipeline — four stages, drag and drop</li>
+          <li>Full engagement history per contact</li>
+        </ul>
+        <a class="btn full" href="index.html">Start free, upgrade anytime</a>
+      </div>
+      <div class="tier">
+        <h3>Team</h3><div class="price">Coming soon</div>
+        <ul>
+          <li>Everything in Pro</li>
+          <li>Shared team contact pool</li>
+          <li>Admin visibility across the team</li>
+          <li>Leaderboard ranks <b>follow-ups completed</b>, not cards blasted</li>
+        </ul>
+        <span class="fine" style="display:block;text-align:center">We'll announce it when it ships.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap final-inner">
+    <h2>Stop collecting contacts. Start keeping them.</h2>
+    <a class="btn btn-big" href="index.html">Create your free card →</a>
+    <p class="fine">60-second setup · no credit card · recipients never install anything</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <span>▣ Nexus Card</span>
+    <span>© 2026 Nexus Card · <a href="privacy.html" style="color:inherit">Privacy</a> · <a href="terms.html" style="color:inherit">Terms</a> · <a href="legal.html" style="color:inherit">Legal</a></span>
+  </div>
+</footer>
+
+<script src="js/landing.js" defer></script>
+</body>
 </html>
