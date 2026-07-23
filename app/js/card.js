@@ -21,7 +21,9 @@ const CardView = {
       <p class="section-label">Sharing options</p>
       <div class="share-opt"><div class="feed-ic">▦</div><div style="flex:1"><b>QR code</b><div class="sub">Works offline — static QR</div></div><button class="btn small secondary" onclick="CardView.shareSheet()">Show</button></div>
       <div class="share-opt"><div class="feed-ic">🔗</div><div style="flex:1"><b>Card link</b><div class="sub">${esc(Store.cardUrl())}</div></div><button class="btn small secondary" onclick="CardView.copyLink()">Copy</button></div>
-      <p style="text-align:center;margin:18px 0 4px"><button class="btn ghost small" onclick="Store.reset()">Delete my card &amp; data</button></p>`;
+      <p class="section-label">Your data</p>
+      <div class="share-opt"><div class="feed-ic">⬇</div><div style="flex:1"><b>Download your data</b><div class="sub">Everything we hold, as JSON</div></div><button class="btn small secondary" onclick="Account.exportData(this)">Export</button></div>
+      <div class="share-opt"><div class="feed-ic">🗑</div><div style="flex:1"><b>Delete your account</b><div class="sub">Permanent — card, contacts and reminders</div></div><button class="btn small secondary" onclick="Account.confirmDelete()">Delete</button></div>`;
   },
 
   bizCard(me, isRecipient) {
@@ -383,5 +385,69 @@ const Account = {
       <h2>Check your email</h2>
       <p class="sub" style="margin:8px 0 14px">We sent a confirmation link to <b>${esc(email)}</b>. Click it to finish securing your account.</p>
       <button class="btn ghost" onclick="closeSheet()">Close</button>`);
+  },
+
+  /* ---- data rights (GDPR Art. 15/17/20, CCPA/CPRA) ---- */
+
+  async exportData(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+    try {
+      const data = await Store.exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'nexus-card-export-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('✓ Your data has been downloaded');
+    } catch (err) {
+      console.error(err);
+      toast('Could not export: ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Export'; }
+    }
+  },
+
+  confirmDelete() {
+    const s = Store.state;
+    const paid = s.plan !== 'free';
+    openSheet(`
+      <h2>Delete your account</h2>
+      <p class="sub" style="margin:8px 0 12px">
+        This permanently deletes your card, every contact, all notes, reminders and history.
+        Your card link stops working immediately. <b>It cannot be undone.</b>
+      </p>
+      ${paid ? `<p class="sub" style="margin-bottom:12px">Your ${s.plan === 'team' ? 'Team' : 'Pro'} subscription will be cancelled as part of this.</p>` : ''}
+      ${!s.accountSecured ? `<div class="upgrade-box" style="margin-bottom:12px"><b>No email on file.</b><div class="sub" style="margin-top:4px">There is no way to recover this account afterwards.</div></div>` : ''}
+      <p class="sub" style="margin-bottom:8px">Consider <a href="#" onclick="closeSheet();Account.exportData();return false">downloading your data</a> first.</p>
+      <label class="field"><span>Type DELETE to confirm</span><input type="text" id="del-confirm" autocomplete="off" placeholder="DELETE"></label>
+      <button class="btn" id="del-go" onclick="Account.doDelete(this)">Delete everything</button>
+      <button class="btn ghost" onclick="closeSheet()">Cancel</button>`);
+  },
+
+  async doDelete(btn) {
+    const typed = (document.getElementById('del-confirm').value || '').trim();
+    if (typed !== 'DELETE') { toast('Type DELETE to confirm'); return; }
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    try {
+      await Store.deleteAccount();
+      document.getElementById('sheet').innerHTML = '';
+      closeSheet();
+      document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100dvh;padding:32px;text-align:center">
+          <div>
+            <div style="font-size:32px;margin-bottom:12px">✓</div>
+            <h1 style="font-size:20px">Your account has been deleted</h1>
+            <p style="color:#71717a;font-size:14px;margin-top:8px">Everything has been removed. Thanks for trying Nexus Card.</p>
+          </div>
+        </div>`;
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false; btn.textContent = 'Delete everything';
+      toast(err.message);
+    }
   }
 };

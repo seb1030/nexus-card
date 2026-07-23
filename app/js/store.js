@@ -152,23 +152,32 @@ const Store = {
   cardUrl() { return location.origin + '/card.html?u=' + this.state.me.slug; },
   contact(id) { return this.state.contacts.find(c => c.id === id); },
 
-  /* DESTRUCTIVE. Sessions are anonymous, so auth.uid() *is* the account and
-     it lives only in this browser's localStorage. Signing out does not
-     "reset demo data" — it discards the only key to this user's card,
-     contacts, reminders and subscription. The rows survive in Postgres,
-     permanently unreachable by anyone.
-     TODO: replace with a real delete (scoped to seeded rows, or a full
-     `delete from cards where owner_id = uid` account deletion) rather than
-     abandoning the identity. Until then it is at least gated. */
-  async reset() {
-    const secured = this.state.accountSecured;
-    const warning = secured
-      ? 'This signs you out. You can sign back in with your email link.'
-      : 'This permanently deletes your card, all your contacts, and your reminders.\n\n'
-        + 'Your account is not linked to an email, so this CANNOT be undone and there is no way to recover it.';
-    if (!confirm(warning + '\n\nContinue?')) return;
+  /* GDPR Art. 20 / CCPA portability. privacy.html promises this is available
+     in-app, and terms.html tells users not to treat Nexus as their only copy
+     because "export features exist for a reason" — so one has to exist. */
+  async exportMyData() {
+    const { data, error } = await sb.rpc('export_my_data');
+    if (error) throw error;
+    return data;
+  },
+
+  /* GDPR Art. 17 erasure. Genuinely deletes: the Edge Function cancels any
+     live Stripe subscription, then removes the auth user, which cascades to
+     every table. This replaces reset(), which called signOut() on an
+     anonymous session — leaving the rows in Postgres, orphaned under an id
+     that existed only in that browser. That destroyed access without
+     destroying data, which is the opposite of what a delete should do. */
+  async deleteAccount() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not signed in — reload and try again.');
+    const res = await fetch(SUPABASE_URL + '/functions/v1/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ confirm: 'DELETE' })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.error) throw new Error(body.error || 'Could not delete the account.');
     await sb.auth.signOut();
-    location.reload();
   },
 
   /* ---- onboarding ---- */
