@@ -87,6 +87,34 @@ select id, notified_at from public.reminders where id = '<some reminder id>';
 - Quiet hours: nothing sends outside 08:00–20:00 in `profiles.timezone` (set by the client from the browser), unless the reminder is already >36h overdue — so a bad timezone can't strand someone's follow-ups forever.
 - Resend requires a **verified sending domain** before it will deliver to arbitrary addresses.
 
+## Deploying the frontend (there is a manual step, and it bites)
+
+`app/` is static — copy it to any host, publish directory `app/`.
+
+**Three things must be bumped together on every deploy that changes a JS or CSS file:**
+
+1. the `?v=N` query strings in `app/index.html` and `app/card.html`
+2. `CACHE_VERSION` in `app/sw.js`
+3. the matching `?v=N` inside `sw.js`'s `SHELL` array
+
+Miss any one and returning visitors get a half-updated app: some files fresh,
+some served from the previous service-worker cache, producing bugs that do not
+reproduce locally and cannot be diagnosed from the outside. This has already
+drifted once (`card.html` sat at `v=2` while `index.html` was at `v=3`, so the
+shared `supabase-client.js` was cached under two URLs).
+
+This should be a build-time content hash rather than three hand-edited numbers.
+Until it is, a `sed` across all three is the safe way:
+
+```bash
+cd app && sed -i '' 's/?v=[0-9]*/?v=NEW/g' index.html card.html sw.js && sed -i '' 's/nexus-shell-v[0-9]*/nexus-shell-vNEW/' sw.js
+```
+
+The service worker caches **only the app shell** — never Supabase responses.
+Contacts, reminders and card data are mutable and shared across devices, so a
+stale cached copy would be indistinguishable from real data. Verified in the
+browser: 17 shell entries, zero cross-origin, zero API responses.
+
 ## Going live (test → live mode)
 
 The failure mode this checklist exists to prevent: live-mode price IDs differ from test-mode ones, and an unmapped price used to fall back to `plan: "free"` — silently downgrading every paying customer. That fallback now throws instead, so a missed step fails loudly rather than quietly.

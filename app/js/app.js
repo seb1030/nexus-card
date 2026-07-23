@@ -78,6 +78,17 @@ window.addEventListener('unhandledrejection', (e) => {
   toast('Something went wrong — please try again.');
 });
 
+/* Service worker — caches the app shell only, never Supabase data.
+   Registered after load so it never competes with the first paint or the
+   session bootstrap. Requires a secure context: it silently no-ops on
+   plain http://, which is correct for local file testing. */
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(new URL('sw.js', location.href).href)
+      .catch(err => console.warn('service worker registration failed', err));
+  });
+}
+
 /* tab clicks */
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => App.go(b.dataset.tab)));
 
