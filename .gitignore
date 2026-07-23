@@ -8,3 +8,6 @@
 
 # Edge Function secrets — never commit
 supabase/.env.secrets
+
+# Supabase CLI local state
+supabase/.temp/
