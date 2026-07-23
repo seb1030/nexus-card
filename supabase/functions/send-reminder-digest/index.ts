@@ -114,7 +114,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "email not configured" }), { status: 503 });
   }
 
-  const summary = { candidates: 0, users: 0, sent: 0, held: 0, failed: 0, skipped_no_email: 0 };
+  // last_error is surfaced in the response because Supabase's log API only
+  // exposes request-level entries, not console output -- without this, a
+  // failing sweep reports "failed: 1" with no way to find out why.
+  const summary = { candidates: 0, users: 0, sent: 0, held: 0, failed: 0, skipped_no_email: 0, last_error: null };
 
   try {
     const { data: due, error } = await supabase
@@ -180,6 +183,7 @@ Deno.serve(async (req) => {
         // silently dropping the reminder.
         console.error("send failed", { ownerId, err: String(err) });
         summary.failed += rows.length;
+        summary.last_error = String(err).slice(0, 400);
         continue;
       }
 
