@@ -16,24 +16,24 @@
  * has already drifted once this session -- both should move to a build-time
  * content hash. Until then: bump this AND the ?v=N together.
  */
-const CACHE_VERSION = 'nexus-shell-v11';
+const CACHE_VERSION = 'nexus-shell-93a9a742';
 
 const SHELL = [
   'index.html',
   'card.html',
   'landing.html',
-  'css/styles.css?v=11',
-  'css/landing.css?v=11',
-  'js/qrcode.js?v=11',
-  'js/supabase-client.js?v=11',
-  'js/store.js?v=11',
-  'js/onboarding.js?v=11',
-  'js/card.js?v=11',
-  'js/contacts.js?v=11',
-  'js/pipeline.js?v=11',
-  'js/analytics.js?v=11',
-  'js/app.js?v=11',
-  'js/public-card.js?v=11',
+  'css/styles.css?v=8863dcdf',
+  'css/landing.css?v=e7d8140f',
+  'js/qrcode.js?v=18ae399f',
+  'js/supabase-client.js?v=f7ecea6d',
+  'js/store.js?v=cf006e0a',
+  'js/onboarding.js?v=b2131557',
+  'js/card.js?v=77f24853',
+  'js/contacts.js?v=63636958',
+  'js/pipeline.js?v=9a06afd3',
+  'js/analytics.js?v=9d491f31',
+  'js/app.js?v=e44b0081',
+  'js/public-card.js?v=4cf81af6',
   'favicon.svg',
   'manifest.json',
 ];

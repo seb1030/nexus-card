@@ -98,11 +98,37 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 /* tab clicks */
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => App.go(b.dataset.tab)));
 
+/* Boot skeleton. Store.load() is a session bootstrap plus three serialised
+   queries; on mobile data that is seconds of blank #fafafa with no spinner,
+   which reads as a broken app and prompts a reload — restarting the whole
+   chain. Delayed so a warm load never flashes it: under ~180ms the user just
+   sees the real UI. */
+let bootSkeletonTimer = setTimeout(() => {
+  const view = document.getElementById('view');
+  if (!view || view.innerHTML) return;
+  document.getElementById('app').classList.remove('hidden');
+  view.innerHTML = `
+    <div aria-busy="true" aria-label="Loading">
+      <div class="sk sk-line" style="width:34%;height:22px;margin:4px 0 18px"></div>
+      <div class="sk" style="height:190px;border-radius:18px;margin-bottom:16px"></div>
+      <div class="sk sk-row"></div><div class="sk sk-row" style="opacity:.7"></div>
+      <div class="sk sk-row" style="opacity:.45"></div>
+    </div>`;
+}, 180);
+
+const clearBootSkeleton = () => {
+  clearTimeout(bootSkeletonTimer);
+  const view = document.getElementById('view');
+  if (view && view.querySelector('[aria-busy]')) view.innerHTML = '';
+};
+
 /* boot */
 (async () => {
   try {
     await Store.load();
+    clearBootSkeleton();
   } catch (err) {
+    clearBootSkeleton();
     console.error(err);
     document.getElementById('phone').insertAdjacentHTML('beforeend', `
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:28px;background:#fafafa;z-index:99">
@@ -163,6 +189,7 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
       });
     }
   } else {
+    document.getElementById('app').classList.add('hidden');
     Onboarding.start();
   }
 })();

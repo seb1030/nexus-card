@@ -20,8 +20,26 @@ const slug = new URLSearchParams(location.search).get('u');
 const root = document.getElementById('pubcard');
 let CARD = null, LINKS = [];
 
+/* Drawn before the first request so the page is never blank. A stranger who
+   has just scanned a QR at a conference on venue wifi otherwise stares at a
+   white rectangle and assumes the link is dead. */
+function renderSkeleton() {
+  root.innerHTML = `
+    <div class="biz-card" aria-busy="true" aria-label="Loading card">
+      <div class="sk sk-logo"></div>
+      <div class="sk sk-line" style="width:52%"></div>
+      <div class="sk sk-line" style="width:38%;height:11px"></div>
+      <div style="margin-top:18px">
+        <div class="sk sk-btn"></div>
+        <div class="sk sk-btn" style="opacity:.75"></div>
+        <div class="sk sk-btn" style="opacity:.5"></div>
+      </div>
+    </div>`;
+}
+
 async function load() {
   if (!slug) return renderNotFound();
+  renderSkeleton();
   /* One slug-scoped call returns the card and its links together. A failed
      request must NOT render as "card not found" — a stranger on venue wifi
      being told the card doesn't exist is the worst possible first

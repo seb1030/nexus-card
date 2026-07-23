@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Nexus">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/styles.css?v=11">
+<link rel="stylesheet" href="css/styles.css?v=8863dcdf">
 </head>
 <body>
 <div id="phone">
@@ -27,10 +27,26 @@
   <div id="app" class="hidden">
     <main id="view"></main>
     <nav id="tabbar" role="tablist" aria-label="Main">
-      <button data-tab="card" class="tab active" role="tab" aria-selected="true"><span class="tab-ic" aria-hidden="true">▣</span>My Card</button>
-      <button data-tab="contacts" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">☰</span>Contacts<span id="due-badge" class="badge hidden" role="status" aria-live="polite"></span></button>
-      <button data-tab="pipeline" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">▤</span>Pipeline</button>
-      <button data-tab="analytics" class="tab" role="tab" aria-selected="false"><span class="tab-ic" aria-hidden="true">◔</span>Insights</button>
+      <!-- Inline SVG rather than the previous ▣ ☰ ▤ ◔ glyphs: those render
+           as tofu on several Android and Windows font stacks, and screen
+           readers announced them ("trigram for heaven") before the label.
+           currentColor so the active-tab rule keeps working unchanged. -->
+      <button data-tab="card" class="tab active" role="tab" aria-selected="true">
+        <svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/>
+        </svg>My Card</button>
+      <button data-tab="contacts" class="tab" role="tab" aria-selected="false">
+        <svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="8" r="3.25"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16.5 5.5a3.25 3.25 0 0 1 0 6"/><path d="M18 13.75a5.5 5.5 0 0 1 2.5 4.6"/>
+        </svg>Contacts<span id="due-badge" class="badge hidden" role="status" aria-live="polite"></span></button>
+      <button data-tab="pipeline" class="tab" role="tab" aria-selected="false">
+        <svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/>
+        </svg>Pipeline</button>
+      <button data-tab="analytics" class="tab" role="tab" aria-selected="false">
+        <svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19V5"/><path d="M4 19h16"/><path d="M7.5 15.5l3.5-4 3 2.5 4.5-6"/>
+        </svg>Insights</button>
     </nav>
   </div>
 
@@ -43,14 +59,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/qrcode.js?v=11"></script>
-<script src="js/supabase-client.js?v=11"></script>
-<script src="js/store.js?v=11"></script>
-<script src="js/onboarding.js?v=11"></script>
-<script src="js/card.js?v=11"></script>
-<script src="js/contacts.js?v=11"></script>
-<script src="js/pipeline.js?v=11"></script>
-<script src="js/analytics.js?v=11"></script>
-<script src="js/app.js?v=11"></script>
+<script src="js/qrcode.js?v=18ae399f"></script>
+<script src="js/supabase-client.js?v=f7ecea6d"></script>
+<script src="js/store.js?v=cf006e0a"></script>
+<script src="js/onboarding.js?v=b2131557"></script>
+<script src="js/card.js?v=77f24853"></script>
+<script src="js/contacts.js?v=63636958"></script>
+<script src="js/pipeline.js?v=9a06afd3"></script>
+<script src="js/analytics.js?v=9d491f31"></script>
+<script src="js/app.js?v=e44b0081"></script>
 </body>
 </html>

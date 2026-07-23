@@ -42,7 +42,7 @@ body { background: #e7e7ea; color: var(--ink); -webkit-font-smoothing: antialias
   padding: 6px 0; cursor: pointer; position: relative;
 }
 .tab.active { color: var(--brand); }
-.tab-ic { font-size: 19px; line-height: 1; }
+.tab-ic { width: 22px; height: 22px; display: block; margin: 0 auto 2px; }
 .badge {
   position: absolute; top: 0; right: 24%; background: var(--red); color: #fff;
   font-size: 10px; font-weight: 700; border-radius: 9px; padding: 1px 5px; min-width: 16px;
@@ -319,3 +319,29 @@ button.swatch { border: 0; padding: 0; }
 /* Long unbroken input (a pasted URL, a 200-char name) was clipped and
    unreadable: #phone is overflow:hidden, so it could not even scroll. */
 .biz-name, .biz-title, .c-name, .c-meta, .lbl { overflow-wrap: anywhere; }
+
+/* ---- Loading skeletons.
+   Both entry points rendered a blank rectangle while the session bootstrap
+   and first queries resolved — 3-5 serialised round trips, several seconds
+   on mobile data. On card.html that blank screen is what a stranger sees
+   immediately after scanning a QR at a conference, and they conclude the
+   link is broken. A skeleton costs nothing and reads as "loading". ---- */
+.sk {
+  background: linear-gradient(90deg,
+    var(--gray-1, #f4f4f6) 25%,
+    var(--gray-2, #e9e9ee) 37%,
+    var(--gray-1, #f4f4f6) 63%);
+  background-size: 400% 100%;
+  animation: sk 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+.sk-logo { width: 68px; height: 68px; border-radius: 20px; margin: 0 auto 14px; }
+.sk-line { height: 13px; margin: 0 auto 9px; }
+.sk-btn  { height: 44px; border-radius: 12px; margin-bottom: 9px; }
+.sk-row  { height: 56px; border-radius: 12px; margin-bottom: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+}
