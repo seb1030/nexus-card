@@ -275,7 +275,7 @@ const Paywall = {
             when the feature actually exists. */''}
       ${tier('Team', 'Coming soon', ['Everything in Pro', 'Shared team contact pool', 'Admin visibility across the team'], `
           <p class="sub" style="margin-top:10px;font-size:12px">Not available yet — we'll announce it when it ships.</p>`)}
-      <p class="sub" style="text-align:center;font-size:12px;margin-top:12px">Checkout is powered by Stripe (test mode). Subscriptions are governed by our <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>.</p>
+      <p class="sub" style="text-align:center;font-size:12px;margin-top:12px">Checkout is powered by Stripe. Subscriptions are governed by our <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>.</p>
       <button class="btn ghost" onclick="closeSheet()">Close</button>`);
   },
 

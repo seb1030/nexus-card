@@ -185,6 +185,16 @@ const clearBootSkeleton = () => {
       }
     }
 
+    // PWA shortcuts (manifest.json) land here with a plain query param —
+    // no checkout/link round trip involved, so handle them independently.
+    if (params.get('tab') === 'contacts') {
+      history.replaceState({}, '', location.pathname);
+      App.go('contacts');
+    } else if (params.get('action') === 'share') {
+      history.replaceState({}, '', location.pathname);
+      CardView.shareSheet();
+    }
+
     // Returning from the account-linking confirmation email.
     if (params.get('linked') === 'success') {
       history.replaceState({}, '', location.pathname);
