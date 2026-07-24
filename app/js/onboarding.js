@@ -25,10 +25,7 @@ const Onboarding = {
     return `${this.progress()}
       <h1>Let's build your card</h1>
       <p class="sub">Takes about 60 seconds. No sign-up wall, no email verification.</p>
-      <div style="margin:18px 0 6px">
-        <button class="btn secondary li-btn" onclick="Onboarding.linkedinSignIn()"><span class="li-badge">in</span>Continue with LinkedIn</button>
-        <p class="sub" style="margin-top:6px;font-size:12px">Brings in your name, photo & verified email. You add title & company — two fields, ten seconds. Your phone can autofill the rest from your own contact card.</p>
-      </div>
+      <p class="sub" style="margin:14px 0 2px;font-size:12px">Tip: your phone can autofill these from your own contact card.</p>
       <p class="section-label">Your details</p>
       <label class="field"><span>Full name</span><input type="text" id="ob-name" autocomplete="name" value="${esc(d.name)}" placeholder="Alex Rivera"></label>
       <label class="field"><span>Title</span><input type="text" id="ob-title" autocomplete="organization-title" value="${esc(d.title)}" placeholder="Product Designer"></label>
@@ -38,17 +35,11 @@ const Onboarding = {
       <button class="btn" style="margin-top:8px" onclick="Onboarding.next1()">Continue</button>`;
   },
 
-  /* Official "Sign in with LinkedIn" (OpenID) returns name, photo, and
-     verified email ONLY — no title/company. That's the honest flow. */
-  linkedinSignIn() {
-    this.readFields();
-    Object.assign(this.draft, { name: 'Alex Rivera', email: 'alex@acme.com' });
-    this.render();
-    toast('✓ LinkedIn: name, photo & email imported — add your title & company');
-    this.inferCompany();
-    const t = document.getElementById('ob-title');
-    if (t) t.focus();
-  },
+  /* "Continue with LinkedIn" removed: it was not an OAuth flow at all — it
+     hardcoded Object.assign(draft, {name:'Alex Rivera', email:'alex@acme.com'}),
+     so the most prominent button on the first screen filled in a stranger's
+     details. Restore it as a real Sign in with LinkedIn (OpenID Connect)
+     provider in Supabase Auth when that is wired up. */
 
   /* Free enrichment: infer company from a work-email domain. */
   inferCompany() {
@@ -94,9 +85,7 @@ const Onboarding = {
       <div class="card-box row"><span style="flex:1">Email address</span>
         <label class="switch"><input type="checkbox" ${d.fields.email ? 'checked' : ''} onchange="Onboarding.draft.fields.email=this.checked"><i></i></label></div>
       <p class="section-label">Privacy</p>
-      <div class="card-box row"><div style="flex:1">Auto-tag “where we met”<div class="sub" style="font-size:12px">Uses your location + calendar to tag new contacts with the event. Optional — you can always tag manually.</div></div>
-        <label class="switch"><input type="checkbox" ${d.geotag ? 'checked' : ''} onchange="Onboarding.draft.geotag=this.checked"><i></i></label></div>
-      <p class="sub" style="margin-top:6px;font-size:12px">People who view your card see a notice that views are shared with you (city-level only).</p>
+      <p class="sub" style="margin-top:6px;font-size:12px">People who view your card see a notice that views are shared with you. No location is collected from them.</p>
       <p class="section-label">Links</p>
       ${d.links.map(linkRow).join('') || '<p class="sub" style="margin-bottom:8px">No links yet.</p>'}
       <div class="row" style="margin-bottom:8px">
@@ -108,7 +97,7 @@ const Onboarding = {
       </div>
       <p class="section-label">Branding</p>
       <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
-        `<div class="swatch ${d.color === c ? 'on' : ''}" style="background:${c}" onclick="Onboarding.setColor('${c}')"></div>`).join('')}</div>
+        `<button type="button" class="swatch ${d.color === c ? 'on' : ''}" style="background:${c}" aria-label="Brand colour ${c}" aria-pressed="${d.color === c}" onclick="Onboarding.setColor('${c}')"></button>`).join('')}</div>
       <p class="sub">Logo & photo upload with auto-crop comes later — your initials look great meanwhile.</p>
       <button class="btn" style="margin-top:16px" onclick="Onboarding.step=3;Onboarding.render()">Continue</button>
       <button class="btn ghost" onclick="Onboarding.step=1;Onboarding.render()">Back</button>`;
@@ -116,9 +105,10 @@ const Onboarding = {
 
   addLink() {
     const type = document.getElementById('ob-link-type').value;
-    let url = document.getElementById('ob-link-url').value.trim();
+    const url = document.getElementById('ob-link-url').value.trim();
     if (!url) {
-      url = { Calendly: 'https://calendly.com/you', Portfolio: 'https://you.design', LinkedIn: 'https://linkedin.com/in/you', Custom: 'https://example.com' }[type];
+      toast('Paste the link’s URL first — it goes on your public card.');
+      return;
     }
     const label = { Calendly: 'Book a call', Portfolio: 'View portfolio', LinkedIn: 'LinkedIn', Custom: 'Website' }[type];
     this.draft.links.push({ id: Math.random().toString(36).slice(2), label, url, type, clicks: 0 });
@@ -134,21 +124,15 @@ const Onboarding = {
       <div style="margin-top:16px">
         <div class="share-opt"><div class="feed-ic">▦</div><div><b>QR code</b><div class="sub">Generated instantly — they scan with their camera</div></div></div>
         <div class="share-opt"><div class="feed-ic">🔗</div><div><b>Link</b><div class="sub">Copy to clipboard, send anywhere</div></div></div>
-        <div class="share-opt"><div class="feed-ic">◻</div><div><b>Home screen widget</b><div class="sub">One tap from your phone</div></div></div>
-        <div class="share-opt"><div class="feed-ic">👛</div><div><b>Apple / Google Wallet</b><div class="sub">One-tap add</div></div></div>
+        <div class="share-opt"><div class="feed-ic">◻</div><div><b>Add to home screen</b><div class="sub">Install Nexus like an app — no store needed</div></div></div>
       </div>
       <button class="btn" style="margin-top:16px" onclick="Onboarding.finish()">Make my card live</button>
       <button class="btn ghost" onclick="Onboarding.step=2;Onboarding.render()">Back</button>`;
   },
 
   async finish() {
-    if (!this.draft.links.length) {
-      this.draft.links = [
-        { id: 'l1', label: 'Book a call', url: 'https://calendly.com/you', type: 'Calendly', clicks: 12 },
-        { id: 'l2', label: 'View portfolio', url: 'https://you.design', type: 'Portfolio', clicks: 7 },
-        { id: 'l3', label: 'LinkedIn', url: 'https://linkedin.com/in/you', type: 'LinkedIn', clicks: 4 },
-      ];
-    }
+    // No default links: anything here is published on the user's real,
+    // public card, so an empty list must stay empty.
     try {
       await Store.completeOnboarding(this.draft);
     } catch (err) {

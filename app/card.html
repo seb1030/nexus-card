@@ -2,18 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Nexus Card</title>
-<link rel="stylesheet" href="css/styles.css">
+<meta name="description" content="A digital business card. No app download, no account — just tap and save.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="favicon.svg">
+
+<!-- Cards get pasted into iMessage, WhatsApp, Slack and LinkedIn DMs.
+     Without these a shared link renders as a bare URL with no context.
+     NOTE: these are static, so every card previews identically. Crawlers do
+     not run JS, so per-person previews (name, title, generated og:image)
+     require server-side rendering of /c/:slug — see supabase/README.md. -->
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="Nexus Card">
+<meta property="og:title" content="My digital business card">
+<meta property="og:description" content="Tap to save my details — no app download, no account needed.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="My digital business card">
+<meta name="twitter:description" content="Tap to save my details — no app download, no account needed.">
+
+<link rel="stylesheet" href="css/styles.css?v=2564061b">
 </head>
 <body>
 <div id="phone">
   <main id="pubcard" style="padding:28px 22px;overflow-y:auto;height:100%"></main>
-  <div id="toasts"></div>
+  <div id="toasts" role="status" aria-live="polite" aria-atomic="true"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="js/supabase-client.js?v=2"></script>
-<script src="js/public-card.js?v=2"></script>
+<script src="js/supabase-client.js?v=f7ecea6d"></script>
+<script src="js/public-card.js?v=4cf81af6"></script>
 </body>
 </html>

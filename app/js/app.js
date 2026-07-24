@@ -12,19 +12,34 @@ const App = {
   go(tab) {
     this.tab = tab;
     if (tab !== 'contacts') Contacts.openId = null;
-    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(b => {
+      const on = b.dataset.tab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
     this.renderTab();
   },
 
   renderTab(keepFocus) {
     const view = document.getElementById('view');
+    /* Restore focus to the element that HAD it, at the caret position it
+       had. The old version grabbed the first input[type=text] in the view
+       and slammed the caret to the end — so typing "stipe", clicking back
+       to fix the typo and typing "r" produced "stiper", and on the contact
+       detail view it moved focus to a different field entirely. */
     const active = keepFocus ? document.activeElement : null;
+    const focusId = active && active.id;
+    const selStart = active && active.selectionStart;
+    const selEnd = active && active.selectionEnd;
     const pos = view.scrollTop;
     view.innerHTML = this.views[this.tab]();
     view.scrollTop = pos;
-    if (active && active.tagName === 'INPUT') {
-      const again = view.querySelector('input[type=text]');
-      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    if (focusId) {
+      const again = view.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(focusId) : focusId));
+      if (again) {
+        again.focus();
+        try { again.setSelectionRange(selStart, selEnd); } catch (e) { /* not a text input */ }
+      }
     }
     this.refreshBadge();
   },
@@ -33,6 +48,8 @@ const App = {
     const overdue = Store.dueReminders().filter(d => d.reminder.due < Date.now()).length;
     const b = document.getElementById('due-badge');
     b.textContent = overdue;
+    // A bare number reads as nothing useful; name what it counts.
+    b.setAttribute('aria-label', overdue === 1 ? '1 follow-up overdue' : overdue + ' follow-ups overdue');
     b.classList.toggle('hidden', overdue === 0);
   }
 };
@@ -59,14 +76,70 @@ function toast(msg) {
   setTimeout(() => t.remove(), 3000);
 }
 
+/* Wraps a mutating handler so a failed write surfaces to the user instead
+   of becoming an unhandled rejection. Without this, a rejected store call
+   aborts the handler mid-way: the sheet never closes, the pipeline card
+   snaps back, and nothing explains why. */
+async function guard(fn, msg) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(err);
+    toast((msg || 'Something went wrong') + ': ' + (err?.message || err));
+  }
+}
+
+/* Last-resort net for anything not routed through guard(). */
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled rejection', e.reason);
+  toast('Something went wrong — please try again.');
+});
+
+/* Service worker — caches the app shell only, never Supabase data.
+   Registered after load so it never competes with the first paint or the
+   session bootstrap. Requires a secure context: it silently no-ops on
+   plain http://, which is correct for local file testing. */
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(new URL('sw.js', location.href).href)
+      .catch(err => console.warn('service worker registration failed', err));
+  });
+}
+
 /* tab clicks */
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => App.go(b.dataset.tab)));
+
+/* Boot skeleton. Store.load() is a session bootstrap plus three serialised
+   queries; on mobile data that is seconds of blank #fafafa with no spinner,
+   which reads as a broken app and prompts a reload — restarting the whole
+   chain. Delayed so a warm load never flashes it: under ~180ms the user just
+   sees the real UI. */
+let bootSkeletonTimer = setTimeout(() => {
+  const view = document.getElementById('view');
+  if (!view || view.innerHTML) return;
+  document.getElementById('app').classList.remove('hidden');
+  view.innerHTML = `
+    <div aria-busy="true" aria-label="Loading">
+      <div class="sk sk-line" style="width:34%;height:22px;margin:4px 0 18px"></div>
+      <div class="sk" style="height:190px;border-radius:18px;margin-bottom:16px"></div>
+      <div class="sk sk-row"></div><div class="sk sk-row" style="opacity:.7"></div>
+      <div class="sk sk-row" style="opacity:.45"></div>
+    </div>`;
+}, 180);
+
+const clearBootSkeleton = () => {
+  clearTimeout(bootSkeletonTimer);
+  const view = document.getElementById('view');
+  if (view && view.querySelector('[aria-busy]')) view.innerHTML = '';
+};
 
 /* boot */
 (async () => {
   try {
     await Store.load();
+    clearBootSkeleton();
   } catch (err) {
+    clearBootSkeleton();
     console.error(err);
     document.getElementById('phone').insertAdjacentHTML('beforeend', `
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:28px;background:#fafafa;z-index:99">
@@ -92,28 +165,21 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
       history.replaceState({}, '', location.pathname);
       if (checkoutResult === 'success') {
         toast('✓ Payment received — activating your plan…');
+        // Self-scheduling rather than setInterval: the callback awaits, so
+        // an interval fires overlapping iterations on a slow connection and
+        // several of them each toast and re-render before one clears it.
         let tries = 0;
-        const poll = setInterval(async () => {
+        const poll = async () => {
           tries++;
-          const plan = await Store.refreshProfile();
-          if (plan !== 'free' || tries >= 6) {
-            clearInterval(poll);
-            toast(plan !== 'free'
-              ? '🎉 Welcome to ' + (plan === 'team' ? 'Team' : 'Pro') + '!'
-              : 'Still activating — reload in a moment if it doesn’t update.');
-            App.renderTab();
-            // A paying account is still a silent anonymous session unless
-            // linked — without this, clearing browser data or switching
-            // devices loses access to the subscription with no way back.
-            if (plan !== 'free' && !Store.state.accountSecured) {
-              sb.auth.getSession().then(({ data: { session } }) => {
-                if (session?.user?.is_anonymous) {
-                  Account.promptSecure('You just went ' + (plan === 'team' ? 'Team' : 'Pro') + ' — add an email so you never lose access to it.');
-                }
-              });
-            }
-          }
-        }, 1200);
+          let plan = 'free';
+          try { plan = await Store.refreshProfile(); } catch (err) { console.error(err); }
+          if (plan === 'free' && tries < 6) { setTimeout(poll, 1200); return; }
+          toast(plan !== 'free'
+            ? '🎉 Welcome to ' + (plan === 'team' ? 'Team' : 'Pro') + '!'
+            : 'Still activating — reload in a moment if it doesn’t update.');
+          App.renderTab();
+        };
+        setTimeout(poll, 1200);
       } else if (checkoutResult === 'cancel') {
         toast('Checkout canceled — no charge made.');
       }
@@ -125,9 +191,16 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
       Store.refreshProfile().then(() => {
         toast(Store.state.accountSecured ? '🔐 Account secured — you can now recover it anytime' : '✓ Confirmed');
         App.renderTab();
+        // If they were mid-upgrade when we sent them to link an email,
+        // pick that back up rather than making them find Plans again.
+        Paywall.resumePending();
+      }).catch(err => {
+        console.error(err);
+        toast('Could not confirm your account — please reload.');
       });
     }
   } else {
+    document.getElementById('app').classList.add('hidden');
     Onboarding.start();
   }
 })();

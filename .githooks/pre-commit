@@ -1,0 +1,8 @@
+#!/bin/sh
+# Keeps the ?v= content hashes and CACHE_VERSION in sync with the files they
+# version. Without this the four locations drift by hand — which has already
+# shipped a half-updated app to returning visitors more than once.
+#
+# Enable in a fresh clone with:  git config core.hooksPath .githooks
+node scripts/version-assets.mjs || exit 1
+git add app/index.html app/card.html app/landing.html app/sw.js

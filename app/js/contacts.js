@@ -16,25 +16,46 @@ const Contacts = {
     else if (this.sort === 'company') list.sort((a, b) => a.company.localeCompare(b.company));
     else list.sort((a, b) => b.metTs - a.metTs);
 
+    /* First-run state. "No matches." is a search-failure string and reads
+       as a bug when it is really the very first screen. */
+    if (!s.contacts.length && !this.query && !this.filter) {
+      return `
+        <h1>Contacts</h1>
+        <div style="text-align:center;padding:48px 20px">
+          <div class="feed-ic" style="width:56px;height:56px;margin:0 auto 16px;font-size:26px">👋</div>
+          <h2 style="font-size:17px">No one here yet</h2>
+          <p class="sub" style="margin:6px auto 20px;max-width:32ch">
+            People land here when someone shares their info back from your card — or add them yourself.</p>
+          <button class="btn" onclick="App.go('card');CardView.shareSheet()">Show my QR code</button>
+          <button class="btn secondary" style="margin-top:8px" onclick="CardScanner.open()">+ Add a contact</button>
+        </div>`;
+    }
+
     const due = Store.dueReminders();
     const overdue = due.filter(d => d.reminder.due < Date.now());
     const thisWeek = due.filter(d => d.reminder.due >= Date.now() && d.reminder.due < Date.now() + 7 * DAY);
 
+    /* Chips are derived from the user's actual data. They used to be
+       hardcoded to SaaStr / TechCrunch / San Francisco, which only matched
+       because seedDemoData wrote those exact values -- for a real user they
+       matched nothing. */
+    const events = [...new Set(s.contacts.map(c => c.metAt).filter(Boolean))].slice(0, 3);
     const smartChips = [
-      ['saastr', 'Met at SaaStr'], ['techcrunch', 'Met at TechCrunch'],
-      ['stale', 'No follow-up 30d'], ['vp', 'All VPs'], ['sf', 'In San Francisco'],
-    ].map(([k, lbl]) => `<span class="pill clickable ${this.filter === k ? 'on' : ''}" onclick="Contacts.toggleFilter('${k}')">${lbl}</span>`).join('');
+      ...events.map(ev => ['met:' + ev, 'Met at ' + ev]),
+      ['stale', 'No follow-up 30d'],
+      ['vp', 'All VPs'],
+    ].map(([k, lbl]) => `<button type="button" class="pill clickable ${this.filter === k ? 'on' : ''}" aria-pressed="${this.filter === k}" onclick="Contacts.toggleFilter('${esc(k)}')">${esc(lbl)}</button>`).join('');
 
     return `
       <div class="row">
         <div><h1>Contacts</h1>
         <p class="sub">${s.contacts.length} people · every one has context</p></div>
         <span class="spacer"></span>
-        <button class="btn small secondary" onclick="CardScanner.open()">📷 Scan card</button>
+        <button class="btn small secondary" onclick="CardScanner.open()">+ Add</button>
       </div>
       <div class="search-wrap" style="margin-top:12px">
-        <input type="text" placeholder="Search name, company, event, city…" value="${esc(this.query)}"
-          oninput="Contacts.query=this.value;App.renderTab(true)">
+        <input type="text" id="ct-search" placeholder="Search name, company, event, city…" value="${esc(this.query)}"
+          oninput="Contacts.onSearch(this, event)">
       </div>
       <div class="chips">${smartChips}</div>
 
@@ -57,27 +78,35 @@ const Contacts = {
 
   applySmartFilter(list, f) {
     const month = Date.now() - 30 * DAY;
-    if (f === 'saastr') return list.filter(c => c.metAt.toLowerCase().includes('saastr'));
-    if (f === 'techcrunch') return list.filter(c => c.metAt.toLowerCase().includes('techcrunch'));
-    if (f === 'vp') return list.filter(c => /\bvp\b/i.test(c.title));
-    if (f === 'sf') return list.filter(c => c.location === 'San Francisco');
+    if (f.startsWith('met:')) return list.filter(c => c.metAt === f.slice(4));
+    if (f === 'vp') return list.filter(c => /\bvp\b/i.test(c.title || ''));
     if (f === 'stale') return list.filter(c => c.metTs < month && !c.reminders.some(r => r.done));
     return list;
   },
   toggleFilter(f) { this.filter = this.filter === f ? null : f; App.renderTab(); },
 
+  /* Debounced so typing does not rebuild every row on each keystroke, and
+     composition-aware so IME input is never interrupted mid-word. */
+  _searchTimer: null,
+  onSearch(el, ev) {
+    this.query = el.value;
+    if (ev && ev.isComposing) return;
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => App.renderTab(true), 150);
+  },
+
   dueRow(d, overdue) {
-    return `<div class="card-box tappable" onclick="Contacts.detail('${d.contact.id}')">
+    return `<button type="button" class="card-box tappable" onclick="Contacts.detail('${d.contact.id}')">
       <div class="row">
         <div class="avatar">${esc(d.contact.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2))}</div>
         <div style="flex:1"><div class="c-name">${esc(d.contact.name)}</div>
           <div class="c-meta">“${esc(d.reminder.text)}”</div></div>
         <span class="pill ${overdue ? 'overdue' : ''}">${fmtDue(d.reminder.due)}</span>
-      </div></div>`;
+      </div></button>`;
   },
 
   rowHtml(c) {
-    return `<div class="card-box tappable" onclick="Contacts.detail('${c.id}')">
+    return `<button type="button" class="card-box tappable" onclick="Contacts.detail('${c.id}')">
       <div class="row">
         <div class="avatar">${esc(c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2))}</div>
         <div style="flex:1">
@@ -85,8 +114,8 @@ const Contacts = {
           <div class="c-meta">${esc(c.title)} @ ${esc(c.company)}</div>
           <div class="c-meta">${c.metAt ? '📍 ' + esc(c.metAt) + ' · ' : ''}${fmtAgo(c.metTs)}</div>
         </div>
-        ${c.stage ? `<span class="pill">${Pipeline.stageName(c.stage)}</span>` : ''}
-      </div></div>`;
+        ${c.stage ? `<span class="pill">${esc(Pipeline.stageName(c.stage))}</span>` : ''}
+      </div></button>`;
   },
 
   detail(id) { this.openId = id; App.go('contacts'); },
@@ -109,9 +138,10 @@ const Contacts = {
         </div>
         <div class="chips" style="padding-top:10px">${(c.tags || []).map(t => `<span class="pill brand">${esc(t)}</span>`).join('')}</div>
         <div class="row" style="gap:8px;margin-top:6px">
-          <button class="btn small secondary" onclick="toast('Opening email (demo)')">✉️ Email</button>
-          <button class="btn small secondary" onclick="toast('Calling (demo)')">📞 Call</button>
-          <button class="btn small secondary" onclick="toast('Opening WhatsApp (demo)')">💬 WhatsApp</button>
+          ${c.email ? `<a class="btn small secondary" href="mailto:${encodeURI(c.email)}">✉️ Email</a>` : ''}
+          ${c.phone ? `<a class="btn small secondary" href="tel:${encodeURI(c.phone.replace(/[^\d+]/g, ''))}">📞 Call</a>` : ''}
+          ${c.phone ? `<a class="btn small secondary" href="https://wa.me/${encodeURIComponent(c.phone.replace(/[^\d]/g, ''))}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>` : ''}
+          ${!c.email && !c.phone ? `<span class="sub">No email or phone on file.</span>` : ''}
         </div>
       </div>
 
@@ -137,8 +167,8 @@ const Contacts = {
 
       <p class="section-label">Pipeline stage</p>
       ${Store.isPro() ? `<div class="chips" style="padding-top:2px">${Pipeline.STAGES.map(s =>
-        `<span class="pill clickable ${c.stage === s.id ? 'on' : ''}" onclick="Contacts.setStage('${c.id}','${s.id}')">${s.name}</span>`).join('')}</div>`
-      : `<p class="sub">Pipeline stages are a Pro feature. <span class="pill clickable brand" onclick="Paywall.open()">See plans</span></p>`}
+        `<button type="button" class="pill clickable ${c.stage === s.id ? 'on' : ''}" aria-pressed="${c.stage === s.id}" onclick="Contacts.setStage('${c.id}','${s.id}')">${esc(s.name)}</button>`).join('')}</div>`
+      : `<p class="sub">Pipeline stages are a Pro feature. <button type="button" class="pill clickable brand" onclick="Paywall.open()">See plans</button></p>`}
 
       <p class="section-label">Interaction history</p>
       <div class="card-box">
@@ -146,66 +176,54 @@ const Contacts = {
       </div>`;
   },
 
-  async saveNotes(id, v) { await Store.setContactNotes(id, v); toast('✓ Note saved'); },
+  async saveNotes(id, v) {
+    await guard(async () => {
+      await Store.setContactNotes(id, v);
+      toast('✓ Note saved');
+    }, 'Could not save note');
+  },
   async toggleReminder(cid, rid) {
-    await Store.toggleReminder(cid, rid);
-    App.renderTab(); App.refreshBadge();
+    await guard(async () => {
+      await Store.toggleReminder(cid, rid);
+      App.renderTab(); App.refreshBadge();
+    }, 'Could not update reminder');
   },
   async addReminder(id) {
     const text = document.getElementById('ct-rem-text').value.trim() || 'Follow up';
     const days = +document.getElementById('ct-rem-days').value;
-    await Store.addReminder(id, text, Date.now() + days * DAY);
-    App.renderTab(); App.refreshBadge(); toast('⏰ Reminder set');
+    await guard(async () => {
+      await Store.addReminder(id, text, Date.now() + days * DAY);
+      App.renderTab(); App.refreshBadge(); toast('⏰ Reminder set');
+    }, 'Could not set reminder');
   },
   async setStage(cid, stage) {
-    await Store.setContactStage(cid, stage);
-    App.renderTab();
-    toast('Moved to ' + Pipeline.stageName(stage));
+    await guard(async () => {
+      await Store.setContactStage(cid, stage);
+      App.renderTab();
+      toast('Moved to ' + Pipeline.stageName(stage));
+    }, 'Could not move contact');
   }
 };
 
-/* Paper business card OCR — on-device (Apple Vision / Google ML Kit),
-   free, nothing leaves the phone. Demo simulates the camera + extraction. */
+/* Manual contact entry.
+   This was previously presented as on-device paper-card OCR: it picked a
+   person at random from a hardcoded POOL of three, showed a fake 800ms
+   "Scanning…" step, then pre-filled the form with that invented person and
+   saved them as a real contact. The save was always real; only the capture
+   was fiction. Stripped back to what actually works — the same form, with
+   the fake camera removed. Restore a scan step when real OCR exists. */
 const CardScanner = {
-  POOL: [
-    { name: 'Marcus Webb', title: 'Sales Director', company: 'Gong', email: 'marcus.webb@gong.io', phone: '+1 (415) 555-0177' },
-    { name: 'Ines Fournier', title: 'Head of Partnerships', company: 'Deel', email: 'ines@deel.com', phone: '+1 (628) 555-0142' },
-    { name: 'Tom Nakamura', title: 'Broker', company: 'Keller Williams', email: 'tom.nakamura@kw.com', phone: '+1 (512) 555-0129' },
-  ],
-  current: null,
-
   open() {
-    this.current = this.POOL[Math.floor(Math.random() * this.POOL.length)];
-    const p = this.current;
     openSheet(`
-      <h2>Scan a paper card</h2>
-      <p class="sub" style="margin:6px 0 12px">Point your camera at the card. OCR runs on-device — free, and nothing leaves your phone.</p>
-      <div class="paper-mock">
-        <b>${esc(p.name)}</b>
-        <div>${esc(p.title)} — ${esc(p.company)}</div>
-        <div style="margin-top:8px">${esc(p.email)}<br>${esc(p.phone)}</div>
-      </div>
-      <button class="btn" style="margin-top:14px" onclick="CardScanner.scan()">📷 Scan (demo)</button>
-      <button class="btn ghost" onclick="closeSheet()">Cancel</button>`);
-  },
-
-  scan() {
-    openSheet(`<h2>Scanning…</h2><p class="sub" style="margin-top:8px">Reading text on-device…</p>`);
-    setTimeout(() => this.confirm(), 800);
-  },
-
-  confirm() {
-    const p = this.current;
-    openSheet(`
-      <h2>Check what we read</h2>
-      <p class="sub" style="margin:6px 0 12px">OCR isn't perfect — fix anything that looks off before saving.</p>
-      <label class="field"><span>Name</span><input type="text" id="sc-name" value="${esc(p.name)}"></label>
-      <label class="field"><span>Title</span><input type="text" id="sc-title" value="${esc(p.title)}"></label>
-      <label class="field"><span>Company</span><input type="text" id="sc-company" value="${esc(p.company)}"></label>
-      <label class="field"><span>Email</span><input type="email" id="sc-email" value="${esc(p.email)}"></label>
-      <label class="field"><span>Phone</span><input type="tel" id="sc-phone" value="${esc(p.phone)}"></label>
+      <h2>Add a contact</h2>
+      <p class="sub" style="margin:6px 0 12px">Type in what's on their card. You can add notes and a follow-up right after.</p>
+      <label class="field"><span>Name</span><input type="text" id="sc-name" maxlength="100" placeholder="Required"></label>
+      <label class="field"><span>Title</span><input type="text" id="sc-title" maxlength="120"></label>
+      <label class="field"><span>Company</span><input type="text" id="sc-company" maxlength="120"></label>
+      <label class="field"><span>Email</span><input type="email" id="sc-email" maxlength="320"></label>
+      <label class="field"><span>Phone</span><input type="tel" id="sc-phone" maxlength="40"></label>
       <button class="btn" onclick="CardScanner.save()">Save contact</button>
-      <button class="btn ghost" onclick="closeSheet()">Discard</button>`);
+      <button class="btn ghost" onclick="closeSheet()">Cancel</button>`);
   },
 
   async save() {
@@ -216,7 +234,7 @@ const CardScanner = {
     try {
       ct = await Store.addContactFromShareBack(
         { name, title: v('sc-title'), company: v('sc-company'), email: v('sc-email'), phone: v('sc-phone') },
-        'Scanned their paper card');
+        'Added manually');
     } catch (err) {
       toast('Could not save: ' + err.message);
       return;
@@ -224,6 +242,6 @@ const CardScanner = {
     closeSheet();
     App.go('contacts');
     Contacts.detail(ct.id);
-    toast('✓ ' + name + ' saved from paper card');
+    toast('✓ ' + name + ' saved');
   }
 };

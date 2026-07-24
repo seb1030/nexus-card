@@ -20,34 +20,41 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17.0.0";
+import { PLAN_BY_PRICE } from "../_shared/plans.ts";
 
 const stripe = new Stripe(Deno.env.get("NEXUS_STRIPE_SECRET_KEY")!);
 const webhookSecret = Deno.env.get("NEXUS_STRIPE_WEBHOOK_SECRET")!;
-
-const PLAN_BY_PRICE = {
-  "price_1Tv1dTChHr9GMVU26sxSTSt6": "pro",   // Pro Monthly
-  "price_1Tv1deChHr9GMVU2ArpuWqDQ": "pro",   // Pro Yearly
-  "price_1Tv1dhChHr9GMVU2WJPpbL27": "team",  // Team per-seat Monthly
-};
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-async function upsertSubscriptionById(subscriptionId) {
+async function upsertSubscriptionById(subscriptionId, isRetry = false) {
   const sub = await stripe.subscriptions.retrieve(subscriptionId);
 
   const item = sub.items?.data?.[0];
   const priceId = item?.price?.id;
-  const mappedPlan = (priceId && PLAN_BY_PRICE[priceId]) || "free";
+
+  // An unmapped price must be loud. Falling back to "free" here is what
+  // silently downgraded every live customer when the price tables drifted.
+  const mappedPlan = priceId && PLAN_BY_PRICE[priceId];
+  if (!mappedPlan) {
+    throw new Error(`Unmapped Stripe price ${priceId} on subscription ${sub.id}`);
+  }
+
   const userId = sub.metadata?.supabase_user_id;
   if (!userId) {
-    console.error("No supabase_user_id in subscription metadata", sub.id);
+    // Retrying will not help -- the metadata is missing at the source. This
+    // is an orphaned paid subscription that needs manual repair, so it must
+    // be alerted on rather than swallowed.
+    console.error("ORPHANED SUBSCRIPTION: no supabase_user_id in metadata", sub.id);
     return;
   }
   const status = sub.status;
-  const effectivePlan = (status === "active" || status === "trialing") ? mappedPlan : "free";
+  // Store what was PURCHASED. Whether it is currently entitled is derived
+  // from status by sync_profile_plan(), so a transient past_due no longer
+  // instantly revokes access and a cancel can't clobber a newer active sub.
   const periodEndSeconds = sub.current_period_end ?? item?.current_period_end;
 
   const { error } = await supabase.from("subscriptions").upsert({
@@ -55,13 +62,44 @@ async function upsertSubscriptionById(subscriptionId) {
     user_id: userId,
     stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
     stripe_subscription_id: sub.id,
-    plan: effectivePlan,
+    plan: mappedPlan,
     status,
     seats: item?.quantity ?? null,
     current_period_end: periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null,
   }, { onConflict: "stripe_subscription_id" });
 
-  if (error) console.error("subscriptions upsert failed", error);
+  // MUST throw, not log. Returning normally here sends Stripe a 200, so it
+  // marks the event delivered and never retries -- leaving a charged
+  // customer with no subscription row and no way to recover it.
+  if (error) {
+    // 23505 on subscriptions_one_live_per_user: another row for this user
+    // is live, so this write can never land. The usual cause is a stale
+    // blocker (already canceled in Stripe, our cancel event delayed or
+    // dropped) -- refresh every blocking row from Stripe, then retry once.
+    if (error.code === "23505" && !isRetry) {
+      const { data: blockers } = await supabase
+        .from("subscriptions")
+        .select("stripe_subscription_id")
+        .eq("owner_type", "user")
+        .eq("user_id", userId)
+        .in("status", ["active", "trialing", "past_due"])
+        .neq("stripe_subscription_id", sub.id);
+      for (const blocker of blockers ?? []) {
+        await upsertSubscriptionById(blocker.stripe_subscription_id, true);
+      }
+      return upsertSubscriptionById(subscriptionId, true);
+    }
+    if (error.code === "23505") {
+      // Both subscriptions genuinely live in Stripe: the customer is being
+      // double-billed and no amount of retrying fixes that. Ack the event
+      // (a 500 loop buries the signal) and alert for manual repair, same
+      // treatment as ORPHANED SUBSCRIPTION above.
+      console.error("DOUBLE LIVE SUBSCRIPTION: needs manual repair in Stripe", { subId: sub.id, userId });
+      return;
+    }
+    console.error("subscriptions upsert failed", { subId: sub.id, userId, error });
+    throw new Error(`subscriptions upsert failed: ${error.message}`);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -92,9 +130,13 @@ Deno.serve(async (req) => {
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object;
-        await supabase.from("subscriptions")
-          .update({ plan: "free", status: "canceled" })
+        // Only the status changes -- plan stays as purchased, so the
+        // trigger re-derives entitlement across the user's remaining rows
+        // instead of this cancel blanket-downgrading them to free.
+        const { error } = await supabase.from("subscriptions")
+          .update({ status: "canceled" })
           .eq("stripe_subscription_id", sub.id);
+        if (error) throw new Error(`cancel write failed: ${error.message}`);
         break;
       }
       default:
