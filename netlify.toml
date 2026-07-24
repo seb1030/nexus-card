@@ -1,0 +1,22 @@
+# Netlify configuration for the static frontend.
+# The site is plain HTML/CSS/JS in app/ — there is no build step.
+
+[build]
+  publish = "app"
+
+# The service worker must always revalidate. If sw.js is ever served from
+# cache, a returning visitor keeps running the old app shell and never
+# receives updates — a failure that cannot be reproduced or diagnosed
+# remotely. See supabase/README.md ("Deploying the frontend").
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# HTML carries the ?v=<hash> references that bust the asset caches on each
+# deploy, so it must revalidate rather than be served from a stale copy.
+# Netlify still serves the assets themselves efficiently via ETag revalidation.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
