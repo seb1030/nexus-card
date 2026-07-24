@@ -30,7 +30,7 @@ const Onboarding = {
       <label class="field"><span>Full name</span><input type="text" id="ob-name" autocomplete="name" value="${esc(d.name)}" placeholder="Alex Rivera"></label>
       <label class="field"><span>Title</span><input type="text" id="ob-title" autocomplete="organization-title" value="${esc(d.title)}" placeholder="Product Designer"></label>
       <label class="field"><span>Company</span><input type="text" id="ob-company" autocomplete="organization" value="${esc(d.company)}" placeholder="Acme"></label>
-      <label class="field"><span>Phone</span><input type="tel" id="ob-phone" autocomplete="tel" value="${esc(d.phone)}" placeholder="+1 (415) 555-0100"></label>
+      <label class="field"><span>Phone</span><input type="tel" id="ob-phone" autocomplete="tel" value="${esc(d.phone || '+1 ')}" oninput="Onboarding.formatPhone(this, event)" placeholder="+1 (415) 555-0100"></label>
       <label class="field"><span>Email</span><input type="email" id="ob-email" autocomplete="email" value="${esc(d.email)}" placeholder="alex@acme.com" onblur="Onboarding.inferCompany()"></label>
       <button class="btn" style="margin-top:8px" onclick="Onboarding.next1()">Continue</button>`;
   },
@@ -54,12 +54,45 @@ const Onboarding = {
     toast('🏢 Company detected from your email domain: ' + d.company);
   },
 
+  /* US phone mask: the field always shows the "+1 " country code so the
+     visitor only ever types the 10 local digits.
+
+     The digit string is tracked separately in a data attribute rather than
+     re-derived from el.value on every keystroke. Re-deriving breaks on
+     backspace: once the area code is complete ("+1 (415) "), the last
+     character is a formatting space, and removing a punctuation character
+     leaves the same digits behind -- the handler would just print the same
+     ") " right back, and backspace could never reach the digits at all. */
+  formatPhone(el, ev) {
+    let digits = el.dataset.phoneDigits || '';
+    const deleting = ev && (ev.inputType === 'deleteContentBackward' || ev.inputType === 'deleteContentForward');
+    if (deleting) {
+      digits = digits.slice(0, -1);
+    } else {
+      let raw = el.value;
+      if (raw.startsWith('+1')) raw = raw.slice(2);
+      digits = raw.replace(/\D/g, '');
+      if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+      digits = digits.slice(0, 10);
+    }
+    el.dataset.phoneDigits = digits;
+    let out = '+1 ';
+    if (digits.length > 0) out += '(' + digits.slice(0, 3);
+    if (digits.length >= 3) out += ') ';
+    if (digits.length > 3) out += digits.slice(3, 6);
+    if (digits.length > 6) out += '-' + digits.slice(6, 10);
+    el.value = out;
+  },
+
   readFields() {
     const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
     ['name', 'title', 'company', 'phone', 'email'].forEach(k => {
       const val = v('ob-' + k);
       if (val !== null) this.draft[k] = val;
     });
+    // A field left at just the "+1 " prefix has no real number in it.
+    const phoneDigits = (this.draft.phone || '').replace(/\D/g, '');
+    if (phoneDigits.length <= 1) this.draft.phone = '';
   },
 
   next1() {

@@ -16,7 +16,7 @@
  * has already drifted once this session -- both should move to a build-time
  * content hash. Until then: bump this AND the ?v=N together.
  */
-const CACHE_VERSION = 'nexus-shell-b22dd147';
+const CACHE_VERSION = 'nexus-shell-d19da0a0';
 
 const SHELL = [
   'index.html',
@@ -27,7 +27,7 @@ const SHELL = [
   'js/qrcode.js?v=18ae399f',
   'js/supabase-client.js?v=f7ecea6d',
   'js/store.js?v=d84f8db0',
-  'js/onboarding.js?v=f6558f94',
+  'js/onboarding.js?v=f7d5aa32',
   'js/card.js?v=7943acfb',
   'js/contacts.js?v=7eda7689',
   'js/pipeline.js?v=9a06afd3',
