@@ -30,7 +30,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-async function upsertSubscriptionById(subscriptionId) {
+async function upsertSubscriptionById(subscriptionId, isRetry = false) {
   const sub = await stripe.subscriptions.retrieve(subscriptionId);
 
   const item = sub.items?.data?.[0];
@@ -72,6 +72,31 @@ async function upsertSubscriptionById(subscriptionId) {
   // marks the event delivered and never retries -- leaving a charged
   // customer with no subscription row and no way to recover it.
   if (error) {
+    // 23505 on subscriptions_one_live_per_user: another row for this user
+    // is live, so this write can never land. The usual cause is a stale
+    // blocker (already canceled in Stripe, our cancel event delayed or
+    // dropped) -- refresh every blocking row from Stripe, then retry once.
+    if (error.code === "23505" && !isRetry) {
+      const { data: blockers } = await supabase
+        .from("subscriptions")
+        .select("stripe_subscription_id")
+        .eq("owner_type", "user")
+        .eq("user_id", userId)
+        .in("status", ["active", "trialing", "past_due"])
+        .neq("stripe_subscription_id", sub.id);
+      for (const blocker of blockers ?? []) {
+        await upsertSubscriptionById(blocker.stripe_subscription_id, true);
+      }
+      return upsertSubscriptionById(subscriptionId, true);
+    }
+    if (error.code === "23505") {
+      // Both subscriptions genuinely live in Stripe: the customer is being
+      // double-billed and no amount of retrying fixes that. Ack the event
+      // (a 500 loop buries the signal) and alert for manual repair, same
+      // treatment as ORPHANED SUBSCRIPTION above.
+      console.error("DOUBLE LIVE SUBSCRIPTION: needs manual repair in Stripe", { subId: sub.id, userId });
+      return;
+    }
     console.error("subscriptions upsert failed", { subId: sub.id, userId, error });
     throw new Error(`subscriptions upsert failed: ${error.message}`);
   }

@@ -4,9 +4,11 @@ Backend for Nexus Card. Project ref: `aryfefzkqqaaauyrddwp` · region ca-central
 
 ## What's here
 
-- `migrations/` — all 11 SQL migrations applied to the live project, in order. Together they define: `teams`/`team_members`, `profiles`, `cards`/`card_links` (+ the `public_cards` safe-read view), `contacts`/`reminders`/`contact_history`, `card_events` (+ the `record_card_view`/`record_link_click` anon RPCs), `subscriptions` (billing source of truth, zero client write access), plus lockdown/perf fixes and the identity-linking sync trigger.
+- `migrations/` — every SQL migration applied to the live project, in order (19 as of 2026-07-23; trust the directory listing over this sentence). Together they define: `teams`/`team_members`, `profiles`, `cards`/`card_links`, `contacts`/`reminders`/`contact_history`, `card_events`, `subscriptions` (billing source of truth, zero client write access), the anon-callable SECURITY DEFINER RPCs (`get_public_card`, `record_card_view`, `record_link_click`, `submit_share_back` — note the earlier `public_cards` view was **dropped** in `20260722132540` in favour of `get_public_card`), `export_my_data`/`card_stats`, reminder-delivery schema + cron, plus lockdown/perf fixes and the identity-linking sync trigger.
 - `functions/create-checkout-session/` — creates a Stripe Checkout Session for the caller.
 - `functions/stripe-webhook/` — the only writer to `subscriptions`; verifies Stripe's signature and syncs plan/status.
+- `functions/send-reminder-digest/` — cron-driven reminder email sweep (see its own section below).
+- `functions/delete-account/` — authenticated self-service account erasure (cancels live Stripe subs, then deletes the auth user; the CASCADE chain removes all owned rows). The privacy policy promises this — a deploy without it ships that promise against a 404.
 
 ## What's NOT here (cloud-only, no local copy)
 
@@ -24,6 +26,8 @@ supabase link --project-ref <new-project-ref>
 supabase db push                                    # applies migrations/ in order
 supabase functions deploy create-checkout-session
 supabase functions deploy stripe-webhook --no-verify-jwt
+supabase functions deploy delete-account
+supabase functions deploy send-reminder-digest --no-verify-jwt   # see reminder section for its secrets
 # Use --env-file rather than inline values: anything typed here lands in
 # shell history and in the process list.
 supabase secrets set --env-file ./supabase/.env.secrets
@@ -91,32 +95,32 @@ select id, notified_at from public.reminders where id = '<some reminder id>';
 
 `app/` is static — copy it to any host, publish directory `app/`.
 
-**Three things must be bumped together on every deploy that changes a JS or CSS file:**
+Asset versioning is a build-time content hash, handled by
+`scripts/version-assets.mjs` — it stamps `?v=<hash>` on every script/stylesheet
+reference in `index.html`, `card.html`, `landing.html` and `sw.js`'s `SHELL`
+array, and derives `CACHE_VERSION` in `sw.js` from the content of all shell
+files. **Do not hand-edit or `sed` the `?v=` values** — they are hex hashes
+now, not counters, and a numeric-only `sed` corrupts them.
 
-1. the `?v=N` query strings in `app/index.html` and `app/card.html`
-2. `CACHE_VERSION` in `app/sw.js`
-3. the matching `?v=N` inside `sw.js`'s `SHELL` array
-
-Miss any one and returning visitors get a half-updated app: some files fresh,
-some served from the previous service-worker cache, producing bugs that do not
-reproduce locally and cannot be diagnosed from the outside. This has already
-drifted once (`card.html` sat at `v=2` while `index.html` was at `v=3`, so the
-shared `supabase-client.js` was cached under two URLs).
-
-This should be a build-time content hash rather than three hand-edited numbers.
-Until it is, a `sed` across all three is the safe way:
+After changing any JS/CSS/HTML in `app/`:
 
 ```bash
-cd app && sed -i '' 's/?v=[0-9]*/?v=NEW/g' index.html card.html landing.html sw.js && sed -i '' 's/nexus-shell-v[0-9]*/nexus-shell-vNEW/' sw.js
+npm run version-assets   # rewrites the ?v= hashes + CACHE_VERSION
+npm run check            # verifies versions are current, then runs tests
 ```
 
-Note `landing.html` is in that list: the CSS files carry `?v=N` too. They did
-not until recently, which meant every stylesheet change was served stale to
-returning visitors indefinitely — the HTML cache-busted its scripts and left
-its stylesheets alone.
+`npm run check` fails loudly on drift, and the pre-commit hook in `.githooks/`
+re-stamps versions automatically — but hooks are per-clone opt-in:
 
-Watch the `sed` — it also rewrites `?v=N` inside `sw.js`'s own comments. Check
-`git diff` before committing.
+```bash
+git config core.hooksPath .githooks
+```
+
+Miss the re-stamp and returning visitors get a half-updated app: some files
+fresh, some served from the previous service-worker cache, producing bugs that
+do not reproduce locally. This drifted once under the old hand-edited scheme
+(`card.html` at `v=2` while `index.html` was at `v=3`, so the shared
+`supabase-client.js` was cached under two URLs) — that's why it's a script now.
 
 The service worker caches **only the app shell** — never Supabase responses.
 Contacts, reminders and card data are mutable and shared across devices, so a

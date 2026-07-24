@@ -64,6 +64,24 @@ Deno.serve(async (req) => {
       quantity = Math.min(Math.max(wanted, plan.minQuantity), MAX_SEATS);
     }
 
+    // One live subscription per user is enforced by a partial unique index
+    // (subscriptions_one_live_per_user). Opening a second Checkout while one
+    // is live would double-bill the customer and leave the webhook unable to
+    // record the second subscription, so refuse here -- before money moves.
+    // This also covers the "still activating" window right after a payment,
+    // when profiles.plan (what the UI gates on) hasn't caught up yet.
+    const { data: liveSubs, error: liveErr } = await supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("owner_type", "user")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .limit(1);
+    if (liveErr) throw new Error(`live-subscription check failed: ${liveErr.message}`);
+    if (liveSubs?.length) {
+      throw new ClientError("You already have an active subscription. Manage it from your plan settings instead of buying again.");
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_customer_id, email")

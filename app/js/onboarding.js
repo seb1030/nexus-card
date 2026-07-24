@@ -105,9 +105,10 @@ const Onboarding = {
 
   addLink() {
     const type = document.getElementById('ob-link-type').value;
-    let url = document.getElementById('ob-link-url').value.trim();
+    const url = document.getElementById('ob-link-url').value.trim();
     if (!url) {
-      url = { Calendly: 'https://calendly.com/you', Portfolio: 'https://you.design', LinkedIn: 'https://linkedin.com/in/you', Custom: 'https://example.com' }[type];
+      toast('Paste the link’s URL first — it goes on your public card.');
+      return;
     }
     const label = { Calendly: 'Book a call', Portfolio: 'View portfolio', LinkedIn: 'LinkedIn', Custom: 'Website' }[type];
     this.draft.links.push({ id: Math.random().toString(36).slice(2), label, url, type, clicks: 0 });
@@ -130,13 +131,8 @@ const Onboarding = {
   },
 
   async finish() {
-    if (!this.draft.links.length) {
-      this.draft.links = [
-        { id: 'l1', label: 'Book a call', url: 'https://calendly.com/you', type: 'Calendly', clicks: 12 },
-        { id: 'l2', label: 'View portfolio', url: 'https://you.design', type: 'Portfolio', clicks: 7 },
-        { id: 'l3', label: 'LinkedIn', url: 'https://linkedin.com/in/you', type: 'LinkedIn', clicks: 4 },
-      ];
-    }
+    // No default links: anything here is published on the user's real,
+    // public card, so an empty list must stay empty.
     try {
       await Store.completeOnboarding(this.draft);
     } catch (err) {

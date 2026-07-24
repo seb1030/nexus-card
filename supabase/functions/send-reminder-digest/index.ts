@@ -136,12 +136,16 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 Deno.serve(async (req) => {
   // Deployed with --no-verify-jwt so pg_cron can reach it; the shared
-  // secret is what actually authenticates the caller.
-  if (SWEEP_SECRET) {
-    const got = req.headers.get("x-sweep-secret");
-    if (got !== SWEEP_SECRET) {
-      return new Response("Forbidden", { status: 403 });
-    }
+  // secret is what actually authenticates the caller. It must fail CLOSED:
+  // with no secret configured this endpoint would otherwise be open to any
+  // anonymous caller (burning Resend quota, emailing at arbitrary hours,
+  // reading the sweep summary).
+  if (!SWEEP_SECRET) {
+    console.error("NEXUS_SWEEP_SECRET is not set — refusing to run an unauthenticated sweep");
+    return new Response(JSON.stringify({ error: "sweep not configured" }), { status: 503 });
+  }
+  if (req.headers.get("x-sweep-secret") !== SWEEP_SECRET) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   if (!RESEND_KEY) {
