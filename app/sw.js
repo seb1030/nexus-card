@@ -16,7 +16,7 @@
  * has already drifted once this session -- both should move to a build-time
  * content hash. Until then: bump this AND the ?v=N together.
  */
-const CACHE_VERSION = 'nexus-shell-d19da0a0';
+const CACHE_VERSION = 'nexus-shell-b1da4650';
 
 const SHELL = [
   'index.html',
