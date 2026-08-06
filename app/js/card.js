@@ -65,6 +65,37 @@ const CardView = {
     toast('✓ Link copied');
   },
 
+  /* Native OS share sheet (iMessage, WhatsApp, AirDrop, ...). Only offered
+     when the browser actually implements it -- navigator.share is absent on
+     most desktop browsers and throws on non-HTTPS origins, so the QR and
+     copy-link paths stay the baseline rather than the fallback. */
+  canNativeShare() {
+    return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  },
+
+  async nativeShare() {
+    const url = Store.cardUrl();
+    try {
+      // The text names the no-download promise, because that is the thing
+      // recipients trained on Popl/HiHello do not expect.
+      await navigator.share({
+        title: 'My digital business card',
+        text: 'Here’s my card — tap to save my details. No app download needed.',
+        url,
+      });
+    } catch (err) {
+      // AbortError just means the user dismissed the OS sheet: not a
+      // failure, and toasting it would be noise on an intentional action.
+      if (err && err.name === 'AbortError') return;
+      toast('Could not open share — link copied instead');
+      navigator.clipboard?.writeText(url);
+      return;
+    }
+    closeSheet();
+    Store.logShare('You shared your card (link)').catch(() => {});
+    toast('✓ Shared');
+  },
+
   /* ---- share sheet with QR ---- */
   shareSheet() {
     const qr = qrcode(0, 'M');
@@ -74,7 +105,10 @@ const CardView = {
       <h2 style="text-align:center">Scan to get my card</h2>
       <div class="qr-wrap">${qr.createSvgTag({ cellSize: 5, margin: 2 })}</div>
       <p class="sub" style="text-align:center;margin-bottom:14px">${esc(Store.cardUrl())}<br>They scan with their camera — <b>no app download needed</b>.</p>
-      <button class="btn" onclick="closeSheet();CardView.copyLink()">Copy link instead</button>
+      ${this.canNativeShare()
+        ? `<button class="btn" onclick="CardView.nativeShare()">Send it to someone →</button>
+           <button class="btn secondary" onclick="closeSheet();CardView.copyLink()">Copy link</button>`
+        : `<button class="btn" onclick="closeSheet();CardView.copyLink()">Copy link instead</button>`}
       <button class="btn ghost" onclick="closeSheet();CardView.simulateScan()">Simulate their scan →</button>`);
     Store.logShare('You shared your card (QR)').catch(() => {});
   },
