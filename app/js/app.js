@@ -221,15 +221,32 @@ const clearBootSkeleton = () => {
   } else {
     document.getElementById('app').classList.add('hidden');
     Onboarding.start();
-    /* Arriving with ?signedin=1 but NO card means the sign-in link did not
-       produce the session it promised — an expired link, or a redirect URL
-       missing from the Supabase allowlist, which sends the user here on a
-       fresh anonymous account instead. Silently showing onboarding is how a
-       returning user ends up building a second card and stranding the first;
-       say so instead. */
+    /* Arriving with ?signedin=1 and no card is ambiguous, and the two cases
+       need opposite messages:
+
+         - The link FAILED (expired, or a redirect URL missing from the
+           Supabase allowlist). The user lands on a fresh ANONYMOUS account.
+           Saying nothing is how a returning user builds a second card and
+           strands the first, so this has to be called out.
+
+         - The link WORKED but the account genuinely has no card yet — it was
+           deleted, or the email was secured before a card was ever built.
+           The user is signed in as themselves. Telling them the link failed
+           would be a lie that pushes them to request another one forever.
+
+       is_anonymous is what separates them. */
     if (new URLSearchParams(location.search).get('signedin') === '1') {
       history.replaceState({}, '', location.pathname);
-      toast('That sign-in link didn’t work — it may have expired. Send a fresh one.');
+      sb.auth.getUser().then(({ data }) => {
+        const u = data && data.user;
+        if (u && u.is_anonymous === false) {
+          toast('✓ Signed in as ' + (u.email || 'your account') + ' — build your card to get started');
+        } else {
+          toast('That sign-in link didn’t work — it may have expired. Send a fresh one.');
+        }
+      }).catch(() => {
+        toast('That sign-in link didn’t work — it may have expired. Send a fresh one.');
+      });
     }
   }
 })();
