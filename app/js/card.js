@@ -23,7 +23,8 @@ const CardView = {
       <div class="share-opt"><div class="feed-ic">🔗</div><div style="flex:1"><b>Card link</b><div class="sub">${esc(Store.cardUrl())}</div></div><button class="btn small secondary" onclick="CardView.copyLink()">Copy</button></div>
       <p class="section-label">Your data</p>
       <div class="share-opt"><div class="feed-ic">⬇</div><div style="flex:1"><b>Download your data</b><div class="sub">Everything we hold, as JSON</div></div><button class="btn small secondary" onclick="Account.exportData(this)">Export</button></div>
-      <div class="share-opt"><div class="feed-ic">🗑</div><div style="flex:1"><b>Delete your account</b><div class="sub">Permanent — card, contacts and reminders</div></div><button class="btn small secondary" onclick="Account.confirmDelete()">Delete</button></div>`;
+      <div class="share-opt"><div class="feed-ic">🗑</div><div style="flex:1"><b>Delete your account</b><div class="sub">Permanent — card, contacts and reminders</div></div><button class="btn small secondary" onclick="Account.confirmDelete()">Delete</button></div>
+      ${Store.planFooter()}`;
   },
 
   bizCard(me, isRecipient) {

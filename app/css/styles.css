@@ -199,6 +199,20 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 .upgrade-box { background: #eef2ff; border: 1px solid #e0e7ff; border-radius: var(--radius); padding: 14px; margin-top: 14px; font-size: 13.5px; }
 .upgrade-box b { color: var(--brand); }
 
+/* install banner */
+.install-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--brand); color: #fff;
+  padding: 10px 12px; margin-bottom: 14px;
+  border-radius: var(--radius); font-size: 13px; line-height: 1.35;
+}
+.install-banner .btn.small { background: #fff; color: var(--brand); flex: none; }
+.install-banner-close {
+  background: none; border: none; color: #fff; opacity: .8;
+  font-size: 15px; line-height: 1; padding: 4px; cursor: pointer; flex: none;
+}
+.install-banner-close:active { opacity: 1; }
+
 /* LinkedIn sign-in button */
 .li-btn { display: flex; align-items: center; justify-content: center; gap: 9px; }
 .li-badge {

@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Nexus">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/styles.css?v=2564061b">
+<link rel="stylesheet" href="css/styles.css?v=cff34220">
 <!-- Funnel analytics (onboarding, upgrade clicks) for the app itself --
      never added to card.html, which promises third-party card viewers
      no tracking. data-domain must match the live host; update it if a
@@ -30,7 +30,17 @@
 
   <!-- MAIN APP -->
   <div id="app" class="hidden">
-    <main id="view"></main>
+    <main id="view">
+      <!-- Persistent across every tab, unlike the per-tab render() output in
+           #view-content below -- built once, shown once, not re-created on
+           every App.go()/renderTab(). -->
+      <div id="install-banner" class="install-banner hidden">
+        <span id="install-banner-text"></span>
+        <button id="install-banner-btn" class="btn small"></button>
+        <button type="button" class="install-banner-close" aria-label="Dismiss" onclick="InstallPrompt.dismiss()">✕</button>
+      </div>
+      <div id="view-content"></div>
+    </main>
     <nav id="tabbar" role="tablist" aria-label="Main">
       <!-- Inline SVG rather than the previous ▣ ☰ ▤ ◔ glyphs: those render
            as tofu on several Android and Windows font stacks, and screen
@@ -66,12 +76,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8/dist/umd/supabase.js"></script>
 <script src="js/qrcode.js?v=18ae399f"></script>
 <script src="js/supabase-client.js?v=b6e73d9c"></script>
-<script src="js/store.js?v=173c39e9"></script>
+<script src="js/store.js?v=58dc0e3a"></script>
 <script src="js/onboarding.js?v=f8aa151d"></script>
-<script src="js/card.js?v=fdf773b3"></script>
-<script src="js/contacts.js?v=7eda7689"></script>
-<script src="js/pipeline.js?v=9a06afd3"></script>
+<script src="js/card.js?v=10bbb90d"></script>
+<script src="js/contacts.js?v=d6538919"></script>
+<script src="js/pipeline.js?v=30afaa20"></script>
 <script src="js/analytics.js?v=a7d55243"></script>
-<script src="js/app.js?v=799a2c96"></script>
+<script src="js/app.js?v=32ce9935"></script>
 </body>
 </html>

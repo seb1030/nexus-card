@@ -1,3 +1,88 @@
+/* Home-screen install prompt. A page you visit through a bookmark is easy
+   to forget; an icon on the home screen is not — that's the entire reason
+   this exists.
+
+   Android/desktop Chrome and Edge fire `beforeinstallprompt`, which can be
+   captured and replayed later from our own button. iOS Safari has no such
+   event and never has — Apple has shipped no programmatic install API — so
+   the only thing possible there is telling the user the manual Share ->
+   Add to Home Screen steps; there is nothing to "trigger".
+
+   The listener is registered at module load, before App.boot() runs and
+   before onboarding may still be showing, because `beforeinstallprompt`
+   can fire at any point after page load and is only offered once per
+   session by the browser — missing it here means losing it entirely for
+   that visit. Showing the banner is harmless even while `#app` is still
+   `.hidden` behind onboarding: removing the banner's own hidden class does
+   nothing visible until the ancestor is shown, so this never jumps ahead
+   of onboarding. */
+const InstallPrompt = {
+  deferred: null,
+  DISMISSED_KEY: 'nexus-install-dismissed',
+
+  isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  },
+  isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  },
+  wasDismissed() {
+    try { return localStorage.getItem(this.DISMISSED_KEY) === '1'; } catch (e) { return false; }
+  },
+
+  init() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Stops Chrome's own mini-infobar so our banner is the only prompt —
+      // two competing "install this?" UIs is worse than either alone.
+      e.preventDefault();
+      this.deferred = e;
+      this.show('android');
+    });
+    // iOS never fires an event to wait for, so show its instructions
+    // immediately rather than waiting on something that will never come.
+    if (this.isIOS()) this.show('ios');
+  },
+
+  show(kind) {
+    if (this.isStandalone() || this.wasDismissed()) return;
+    const banner = document.getElementById('install-banner');
+    if (!banner) return;
+    const text = document.getElementById('install-banner-text');
+    const btn = document.getElementById('install-banner-btn');
+    if (kind === 'android') {
+      text.textContent = '📲 Add Nexus to your home screen — one tap, no store.';
+      btn.textContent = 'Install';
+      btn.onclick = () => this.trigger();
+    } else {
+      text.textContent = '📲 Tap Share, then “Add to Home Screen” — no store needed.';
+      btn.textContent = 'Got it';
+      btn.onclick = () => this.dismiss();
+    }
+    banner.classList.remove('hidden');
+  },
+
+  async trigger() {
+    if (!this.deferred) return;
+    this.deferred.prompt();
+    const { outcome } = await this.deferred.userChoice;
+    this.deferred = null;
+    // Accepted: it is genuinely installed now, never ask again. Declined:
+    // just hide for this page load — the browser itself throttles how
+    // often it re-offers beforeinstallprompt, so this does not nag on
+    // every visit, and the explicit ✕ below is the deliberate "stop
+    // asking" action, not a single decline.
+    if (outcome === 'accepted') this.dismiss();
+    else document.getElementById('install-banner').classList.add('hidden');
+  },
+
+  dismiss() {
+    try { localStorage.setItem(this.DISMISSED_KEY, '1'); } catch (e) { /* private mode */ }
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.classList.add('hidden');
+  }
+};
+InstallPrompt.init();
+
 /* App shell — tabs, sheets, toasts, boot */
 const App = {
   tab: 'card',
@@ -21,7 +106,12 @@ const App = {
   },
 
   renderTab(keepFocus) {
-    const view = document.getElementById('view');
+    // #view is the scroll container and stays put across tab switches;
+    // only #view-content is replaced, so the install banner living beside
+    // it in #view survives every App.go()/renderTab() instead of being
+    // wiped and reconstructed on each one.
+    const scrollHost = document.getElementById('view');
+    const content = document.getElementById('view-content');
     /* Restore focus to the element that HAD it, at the caret position it
        had. The old version grabbed the first input[type=text] in the view
        and slammed the caret to the end — so typing "stipe", clicking back
@@ -31,11 +121,11 @@ const App = {
     const focusId = active && active.id;
     const selStart = active && active.selectionStart;
     const selEnd = active && active.selectionEnd;
-    const pos = view.scrollTop;
-    view.innerHTML = this.views[this.tab]();
-    view.scrollTop = pos;
+    const pos = scrollHost.scrollTop;
+    content.innerHTML = this.views[this.tab]();
+    scrollHost.scrollTop = pos;
     if (focusId) {
-      const again = view.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(focusId) : focusId));
+      const again = content.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(focusId) : focusId));
       if (again) {
         again.focus();
         try { again.setSelectionRange(selStart, selEnd); } catch (e) { /* not a text input */ }

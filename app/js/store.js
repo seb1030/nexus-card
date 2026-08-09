@@ -201,6 +201,24 @@ const Store = {
   },
 
   isPro() { return this.state.plan === 'pro' || this.state.plan === 'team'; },
+
+  /* Compact plan status, shared across My Card / Contacts / Pipeline so a
+     paying user can see the payment "took" without hunting for it in
+     Insights — the only place it showed before. Deliberately just the
+     plan + a link to Paywall, not the fuller box in analytics.js (which
+     also carries the account-recovery nudge); repeating that on every tab
+     would be nagging, not reassurance. */
+  planFooter() {
+    const pro = this.isPro();
+    const label = this.state.plan === 'team' ? 'Nexus Team' : pro ? 'Nexus Pro' : 'Free plan';
+    return `
+      <p class="section-label">Your plan</p>
+      <div class="card-box row">
+        <div style="flex:1"><b>${label}</b>${pro ? '' : '<div class="sub">Unlimited reminders included — always</div>'}</div>
+        ${pro ? '<span class="pill brand">Active</span>' : ''}
+        <button class="btn small secondary" onclick="Paywall.open()">${pro ? 'Manage' : 'Upgrade'}</button>
+      </div>`;
+  },
   /* Points at the real public card.html route so the QR/copy-link
      actually work end to end. Swap for a real custom domain (a Pro-tier
      perk already in the pricing copy) once one is set up. */

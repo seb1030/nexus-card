@@ -32,6 +32,11 @@ const Pipeline = {
             <h3>${esc(st.name)}</h3>
             <div class="pipe-card"><div class="c-name" style="font-size:13px">🔒 Upgrade to unlock</div></div>
           </div>`).join('')}</div>`;
+      /* No planFooter here on purpose: this branch already leads with a
+         full-width "Pipeline is a Pro feature" box and its own See plans
+         button. A second Free/Upgrade footer directly under that is
+         redundant nagging on the one screen already pushing hardest,
+         unlike My Card and Contacts, which mention plan nowhere else. */
     }
 
     if (!s.contacts.length) {
@@ -43,7 +48,8 @@ const Pipeline = {
           <p class="sub" style="margin:6px auto 20px;max-width:32ch">
             Contacts appear here once you have some. Every new contact starts in New Lead.</p>
           <button class="btn" onclick="App.go('contacts')">Go to contacts</button>
-        </div>`;
+        </div>
+        ${Store.planFooter()}`;
     }
 
     const col = (stage) => {
@@ -72,7 +78,8 @@ const Pipeline = {
       <h1>Pipeline</h1>
       <p class="sub">Not a full CRM — four stages, and a nudge to move people forward.</p>
       <div class="pipe-board" style="margin-top:14px">${this.STAGES.map(col).join('')}</div>
-      <p class="sub" style="margin-top:12px;font-size:12px">Drag a card between columns, or tap <b>Move</b> on any card.</p>`;
+      <p class="sub" style="margin-top:12px;font-size:12px">Drag a card between columns, or tap <b>Move</b> on any card.</p>
+      ${Store.planFooter()}`;
   },
 
   /* Touch- and keyboard-accessible alternative to dragging. */

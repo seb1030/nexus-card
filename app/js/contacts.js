@@ -28,7 +28,8 @@ const Contacts = {
             People land here when someone shares their info back from your card — or add them yourself.</p>
           <button class="btn" onclick="App.go('card');CardView.shareSheet()">Show my QR code</button>
           <button class="btn secondary" style="margin-top:8px" onclick="CardScanner.open()">+ Add a contact</button>
-        </div>`;
+        </div>
+        ${Store.planFooter()}`;
     }
 
     const due = Store.dueReminders();
@@ -73,7 +74,8 @@ const Contacts = {
       </div>
       <div style="margin-top:8px">
         ${list.map(c => this.rowHtml(c)).join('') || '<p class="sub">No matches.</p>'}
-      </div>`;
+      </div>
+      ${Store.planFooter()}`;
   },
 
   applySmartFilter(list, f) {
