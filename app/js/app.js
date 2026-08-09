@@ -54,11 +54,35 @@ const InstallPrompt = {
       btn.textContent = 'Install';
       btn.onclick = () => this.trigger();
     } else {
-      text.textContent = '📲 Tap Share, then “Add to Home Screen” — no store needed.';
-      btn.textContent = 'Got it';
-      btn.onclick = () => this.dismiss();
+      // A one-line banner cannot fit real steps -- "tap Share, then Add to
+      // Home Screen" reads fine to someone who already knows the flow, and
+      // is nearly useless to someone who does not, since the Share icon
+      // isn't labelled "Share" on screen and "Add to Home Screen" is
+      // several screens down in a menu, not a visible button. The banner
+      // is just a teaser; the real instructions are one tap away in a
+      // sheet with room for actual steps.
+      text.textContent = '📲 Add Nexus to your Home Screen — takes 10 seconds.';
+      btn.textContent = 'Show me how';
+      btn.onclick = () => this.showIOSInstructions();
     }
     banner.classList.remove('hidden');
+  },
+
+  /* Deliberately does NOT call dismiss() when closed. Only the banner's own
+     ✕ means "stop asking" -- someone who opened this sheet may not have
+     actually finished the steps, and permanently silencing the reminder
+     the moment they view instructions defeats the point of having it. */
+  showIOSInstructions() {
+    openSheet(`
+      <h2>Add Nexus to your Home Screen</h2>
+      <p class="sub" style="margin:6px 0 16px">Four taps, no App Store.</p>
+      <ol style="margin:0 0 18px;padding-left:20px;line-height:1.9;font-size:14.5px">
+        <li>Tap the <b>Share</b> icon <span style="display:inline-block;border:1.5px solid currentColor;border-radius:4px;padding:1px 5px;font-size:13px">⬆︎</span> in Safari's toolbar</li>
+        <li>Scroll down the menu that opens</li>
+        <li>Tap <b>Add to Home Screen</b></li>
+        <li>Tap <b>Add</b> in the top-right corner</li>
+      </ol>
+      <button class="btn" onclick="closeSheet()">Got it</button>`);
   },
 
   async trigger() {
