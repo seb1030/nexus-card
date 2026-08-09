@@ -30,9 +30,48 @@ const Onboarding = {
       <label class="field"><span>Full name</span><input type="text" id="ob-name" autocomplete="name" value="${esc(d.name)}" placeholder="Alex Rivera"></label>
       <label class="field"><span>Title</span><input type="text" id="ob-title" autocomplete="organization-title" value="${esc(d.title)}" placeholder="Product Designer"></label>
       <label class="field"><span>Company</span><input type="text" id="ob-company" autocomplete="organization" value="${esc(d.company)}" placeholder="Acme"></label>
-      <label class="field"><span>Phone</span><input type="tel" id="ob-phone" autocomplete="tel" value="${esc(d.phone || '+1 ')}" oninput="Onboarding.formatPhone(this, event)" placeholder="+1 (415) 555-0100"></label>
+      <label class="field"><span>Phone</span><input type="tel" id="ob-phone" autocomplete="tel" value="${esc(d.phone)}" oninput="Onboarding.formatPhone(this, event)" placeholder="+1 (415) 555-0100 or +44 7700 900123"></label>
       <label class="field"><span>Email</span><input type="email" id="ob-email" autocomplete="email" value="${esc(d.email)}" placeholder="alex@acme.com" onblur="Onboarding.inferCompany()"></label>
-      <button class="btn" style="margin-top:8px" onclick="Onboarding.next1()">Continue</button>`;
+      <button class="btn" style="margin-top:8px" onclick="Onboarding.next1()">Continue</button>
+      <button class="btn ghost" onclick="Onboarding.signInScreen()">Already have a card? Sign in</button>`;
+  },
+
+  /* The recovery door. Without it, screen 1 is the only door in the product
+     and it always builds a NEW card: a returning user on a new phone gets
+     onboarding, makes a second card under a second anonymous account, and
+     their original card plus any printed QR keeps pointing at data they can
+     no longer reach. Rendered into the onboarding container directly rather
+     than as a fourth step, because it is an exit from the flow, not a stage
+     of it -- this.step stays 1, so Back re-renders screen 1 unchanged. */
+  signInScreen() {
+    this.readFields();
+    document.getElementById('onboarding').innerHTML = `
+      <h1>Sign in to your card</h1>
+      <p class="sub">Enter the email you secured your account with. We'll send a sign-in link — no password.</p>
+      <label class="field"><span>Email</span><input type="email" id="si-email" autocomplete="email" value="${esc(this.draft.email)}" placeholder="you@company.com"></label>
+      <button class="btn" id="si-send" onclick="Onboarding.sendSignIn(this)">Email me a sign-in link</button>
+      <p class="sub" style="margin-top:12px;font-size:12px">Never added an email to your card? Then there is nothing to sign in to yet — the card lives only in the browser you made it in.</p>
+      <button class="btn ghost" onclick="Onboarding.step=1;Onboarding.render()">← Back to setup</button>`;
+  },
+
+  async sendSignIn(btn) {
+    const email = (document.getElementById('si-email').value || '').trim();
+    if (!email.includes('@')) { toast('Enter a valid email'); return; }
+    // Disabled while in flight: a double tap sends two links, and the first
+    // one stops working the moment the second is issued.
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await SupabaseAuth.signIn(email);
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Email me a sign-in link';
+      toast(err.message);
+      return;
+    }
+    document.getElementById('onboarding').innerHTML = `
+      <h1>Check your email</h1>
+      <p class="sub">We sent a sign-in link to <b>${esc(email)}</b>. Open it and your card comes back with everything on it.</p>
+      <p class="sub" style="margin-top:12px;font-size:12px">Open the link in <b>this browser</b> — under the PKCE flow the verifier is stored here, so a link opened in a different browser (or an email app's built-in viewer) will not sign you in.</p>
+      <button class="btn ghost" style="margin-top:14px" onclick="Onboarding.step=1;Onboarding.render()">← Back to setup</button>`;
   },
 
   /* "Continue with LinkedIn" removed: it was not an OAuth flow at all — it
@@ -54,34 +93,72 @@ const Onboarding = {
     toast('🏢 Company detected from your email domain: ' + d.company);
   },
 
-  /* US phone mask: the field always shows the "+1 " country code so the
-     visitor only ever types the 10 local digits.
+  /* Phone input. Two defects, both of which reached the public card.
 
-     The digit string is tracked separately in a data attribute rather than
-     re-derived from el.value on every keystroke. Re-deriving breaks on
-     backspace: once the area code is complete ("+1 (415) "), the last
-     character is a formatting space, and removing a punctuation character
-     leaves the same digits behind -- the handler would just print the same
-     ") " right back, and backspace could never reach the digits at all. */
+     1. It hard-assumed NANP. Every non-digit was stripped, a "+1 " prefix
+        was forced back on, and the remaining digits were regrouped as
+        (AAA) BBB-CCCC. Typing a real +44 7700 900123 came out as
+        "+1 (447) 700-9001" -- a different, wrong, dialable number, and that
+        is what got written to cards.phone, rendered on the public card and
+        embedded in the vCard every visitor downloads. A formatter that
+        cannot identify the country has no business regrouping the digits,
+        so nanpGroup below returns the input untouched whenever it is not
+        certain, and the "+1 " prefill on the field is gone.
+
+     2. One backspace after any re-render wiped the whole number. The digit
+        state lived in el.dataset.phoneDigits, and render() replaces the
+        input element outright -- so after the company-inference toast, or
+        adding a link and coming back, dataset was empty, and the first
+        delete did ''.slice(0, -1) and cleared the field. State now lives in
+        draft.phone (which survives render) and in el.value itself, and
+        deletions are left exactly as the browser produced them: the reason
+        dataset existed was that reformatting on delete fights the user for
+        the caret, so the fix is not to reformat on delete at all. */
   formatPhone(el, ev) {
-    let digits = el.dataset.phoneDigits || '';
-    const deleting = ev && (ev.inputType === 'deleteContentBackward' || ev.inputType === 'deleteContentForward');
-    if (deleting) {
-      digits = digits.slice(0, -1);
-    } else {
-      let raw = el.value;
-      if (raw.startsWith('+1')) raw = raw.slice(2);
-      digits = raw.replace(/\D/g, '');
-      if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
-      digits = digits.slice(0, 10);
+    const deleting = ev && typeof ev.inputType === 'string' && ev.inputType.startsWith('delete');
+    // Reformatting mid-string moves the caret to the end, so only do it when
+    // the caret is already there — i.e. the user is typing on the end.
+    const atEnd = el.selectionStart === null || el.selectionStart === el.value.length;
+
+    // Strip only what can never appear in a phone number, and allow "+"
+    // solely in the leading position.
+    let v = el.value.replace(/[^\d+()\-.\s]/g, '').replace(/(?!^)\+/g, '');
+    if (!deleting && atEnd) v = this.nanpGroup(v);
+
+    if (v !== el.value) {
+      el.value = v;
+      if (atEnd) { try { el.setSelectionRange(v.length, v.length); } catch (e) { /* not selectable */ } }
     }
-    el.dataset.phoneDigits = digits;
-    let out = '+1 ';
-    if (digits.length > 0) out += '(' + digits.slice(0, 3);
-    if (digits.length >= 3) out += ') ';
-    if (digits.length > 3) out += digits.slice(3, 6);
-    if (digits.length > 6) out += '-' + digits.slice(6, 10);
-    el.value = out;
+    this.draft.phone = el.value.trim();
+  },
+
+  /* Returns value regrouped as a North American number, or value unchanged
+     when that is not confidently what it is. The bar for "confidently" is
+     deliberately high: guessing wrong publishes a number that reaches
+     somebody else.
+
+     Not NANP, left alone: any "+" followed by a country code other than 1;
+     anything whose first digit is 0, since 0 is a trunk prefix across most
+     of the world and never a NANP area code; anything with more digits than
+     NANP has room for. Whatever country-code prefix the user typed is
+     preserved rather than invented -- a bare 10-digit US number stays bare. */
+  nanpGroup(value) {
+    const raw = value.trim();
+    const digits = raw.replace(/\D/g, '');
+    const plus = raw.startsWith('+');
+    if (plus && digits[0] !== '1') return value;
+    if (!plus && digits.startsWith('0')) return value;
+
+    const hasCc = digits[0] === '1' && (plus || digits.length === 11);
+    const national = hasCc ? digits.slice(1) : digits;
+    if (national.length > 10) return value;
+
+    let out = plus ? '+1 ' : (hasCc ? '1 ' : '');
+    if (national.length > 0) out += '(' + national.slice(0, 3);
+    if (national.length >= 3) out += ')';
+    if (national.length > 3) out += ' ' + national.slice(3, 6);
+    if (national.length > 6) out += '-' + national.slice(6, 10);
+    return out;
   },
 
   readFields() {
@@ -90,9 +167,11 @@ const Onboarding = {
       const val = v('ob-' + k);
       if (val !== null) this.draft[k] = val;
     });
-    // A field left at just the "+1 " prefix has no real number in it.
-    const phoneDigits = (this.draft.phone || '').replace(/\D/g, '');
-    if (phoneDigits.length <= 1) this.draft.phone = '';
+    /* Punctuation with no digits in it ("+", "()") is not a phone number.
+       This used to drop anything with one digit or fewer, which was there to
+       discard the old forced "+1 " prefill; with the prefill gone, that rule
+       would silently delete a number a user had genuinely half-typed. */
+    if (!/\d/.test(this.draft.phone || '')) this.draft.phone = '';
   },
 
   next1() {
@@ -141,6 +220,14 @@ const Onboarding = {
     const url = document.getElementById('ob-link-url').value.trim();
     if (!url) {
       toast('Paste the link’s URL first — it goes on your public card.');
+      return;
+    }
+    /* Same scheme check the edit sheet and the public card apply. Without it
+       onboarding could publish a scheme-less link like "example.com", which
+       public-card.js refuses to open — a dead button on the card, created at
+       the one moment the user is least likely to go back and check. */
+    if (!/^https?:\/\//i.test(url)) {
+      toast('Links need to start with https:// so they open properly.');
       return;
     }
     const label = { Calendly: 'Book a call', Portfolio: 'View portfolio', LinkedIn: 'LinkedIn', Custom: 'Website' }[type];

@@ -15,13 +15,27 @@ const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'js');
 
 /* store.js declares globals rather than exporting, which is how the browser
    loads it. Evaluate it in a sandbox and lift what we need. */
-const ctx = vm.createContext({ console });
+/* crypto is not on a bare vm context, and slugify now needs
+   crypto.getRandomValues. Node's global WebCrypto is the same API the
+   browser exposes, so handing it through tests the real code path rather
+   than a stub. */
+const ctx = vm.createContext({ console, crypto: globalThis.crypto });
 vm.runInContext(
   readFileSync(resolve(APP, 'store.js'), 'utf8') +
   '\n;globalThis.__t = { esc, initialsOf, fmtDue, fmtAgo, slugify, DAY };',
   ctx
 );
 const { esc, initialsOf, fmtDue, fmtAgo, slugify } = ctx.__t;
+
+/* onboarding.js is likewise a bare `const Onboarding = {...}` declaration —
+   nothing runs at load, and nanpGroup touches neither the DOM nor the
+   network, so it evaluates cleanly in its own sandbox. */
+const obCtx = vm.createContext({ console });
+vm.runInContext(
+  readFileSync(resolve(APP, 'onboarding.js'), 'utf8') + '\n;globalThis.__ob = Onboarding;',
+  obCtx
+);
+const Onboarding = obCtx.__ob;
 
 test('esc neutralises every HTML metacharacter', () => {
   assert.equal(esc('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
@@ -91,6 +105,43 @@ test('slugify is non-deterministic, so two users with one name do not collide', 
   const a = slugify('Dana Okafor');
   const b = slugify('Dana Okafor');
   assert.notEqual(a, b);
+});
+
+test('slugify suffix carries enough entropy to survive brute force', () => {
+  /* The bug: a 4-character base36 suffix on a guessable name base, in front
+     of an anon-callable RPC that returns phone and email. 1.68M candidates
+     per name is a script, not a secret. */
+  const suffix = (s) => s.slice(s.lastIndexOf('-') + 1);
+  assert.equal(suffix(slugify('Dana Okafor')).length, 16);
+  // Look-alike characters must stay out, so a slug read off paper is
+  // unambiguous.
+  for (let i = 0; i < 200; i++) {
+    assert.match(suffix(slugify('Dana Okafor')), /^[a-z0-9]{16}$/);
+    assert.doesNotMatch(suffix(slugify('Dana Okafor')), /[lo01]/);
+  }
+  // And the suffixes must actually differ from each other.
+  const seen = new Set();
+  for (let i = 0; i < 500; i++) seen.add(suffix(slugify('Dana Okafor')));
+  assert.equal(seen.size, 500);
+});
+
+test('nanpGroup never rewrites a number from another country', () => {
+  /* The bug: the mask hard-assumed NANP, so "+44 7700 900123" was published
+     on the public card and in the vCard as "+1 (447) 700-9001" — a real,
+     dialable, wrong number belonging to someone else. */
+  for (const intl of ['+44 7700 900123', '+33 6 12 34 56 78', '+61 2 9374 4000', '+81 3-1234-5678', '07700900123']) {
+    assert.equal(Onboarding.nanpGroup(intl), intl, `mangled ${intl}`);
+  }
+});
+
+test('nanpGroup groups numbers that really are North American', () => {
+  assert.equal(Onboarding.nanpGroup('4155550100'), '(415) 555-0100');
+  assert.equal(Onboarding.nanpGroup('+14155550100'), '+1 (415) 555-0100');
+  assert.equal(Onboarding.nanpGroup('14155550100'), '1 (415) 555-0100');
+  // Partial input formats as far as it can and no further.
+  assert.equal(Onboarding.nanpGroup('415555'), '(415) 555');
+  // A lone "+" is the start of some country code we don't know yet.
+  assert.equal(Onboarding.nanpGroup('+'), '+');
 });
 
 test('fmtAgo renders recent timestamps in minutes', () => {

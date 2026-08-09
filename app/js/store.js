@@ -10,9 +10,42 @@ const now = () => Date.now();
 const iso = (msVal) => new Date(msVal).toISOString();
 const fromIso = (isoStr) => (isoStr ? new Date(isoStr).getTime() : null);
 
+/* Slug suffix alphabet: a-z minus l and o, digits 2-9. Exactly 32 symbols,
+   which matters twice. It is a power of two, so (byte & 31) is uniform --
+   the obvious `byte % 36` over base36 would over-select the first four
+   symbols by ~14% and quietly hand back some of the entropy this is here to
+   buy. And dropping the l/1/o/0 look-alikes keeps a slug readable off a
+   printed card or dictatable over a phone. */
+const SLUG_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
+
+/* The old suffix was Math.random().toString(36).slice(2, 6): four base36
+   characters, ~1.68M possibilities, hanging off a base anyone can guess from
+   a name ("sam-smith-"). get_public_card is anon-callable and returns phone
+   and email, so that is a walkable keyspace -- a name list plus a few hours
+   of requests is bulk PII harvesting, not a lucky guess. Math.random is also
+   not a CSPRNG: V8 seeds xorshift128+ per context, and a handful of observed
+   outputs is enough to recover the state and predict the rest, so a user who
+   made a card in the same session as the attacker leaks their slug outright.
+
+   16 symbols x 5 bits = 80 bits, from crypto.getRandomValues. Available in
+   every browser this app supports and in Node 19+ (only crypto.subtle is
+   gated behind a secure context, not getRandomValues). */
+function randomSlugSuffix(len) {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < len; i++) out += SLUG_ALPHABET[bytes[i] & 31];
+  return out;
+}
+
 function slugify(name) {
   const base = (name || 'me').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '') || 'me';
-  return base + '-' + Math.random().toString(36).slice(2, 6);
+  /* Only NEW cards get the long suffix. Existing slugs are deliberately left
+     alone: they are already printed on QR codes, badges and paper cards that
+     cannot be recalled, so rotating them would break links that are out in
+     the world -- trading a guessing risk for a certainty. See
+     fixes/README.md for the back-compat options and what they cost. */
+  return base + '-' + randomSlugSuffix(16);
 }
 
 /* [...w][0] rather than w[0]: string indexing works on UTF-16 code units,
@@ -100,7 +133,10 @@ const Store = {
       links: (card.card_links || [])
         .slice()
         .sort((a, b) => a.position - b.position)
-        .map(l => ({ id: l.id, label: l.label, url: l.url, type: l.type, clicks: l.clicks }))
+        // position is carried through (not just used to sort) so addLink can
+        // append after the real highest position rather than guessing from
+        // the array length, which drifts as soon as anything is removed.
+        .map(l => ({ id: l.id, label: l.label, url: l.url, type: l.type, clicks: l.clicks, position: l.position }))
     });
   },
 
@@ -234,6 +270,12 @@ const Store = {
     if ('name' in patch) { row.name = patch.name; row.initials = initialsOf(patch.name); }
     if ('title' in patch) row.title = patch.title;
     if ('company' in patch) row.company = patch.company;
+    /* phone and email had no branch at all, so the edit sheet could not have
+       saved them even if it had offered the inputs: a mistyped email was
+       permanent short of deleting the account, and it is the address printed
+       on the public card and written into every downloaded vCard. */
+    if ('phone' in patch) row.phone = patch.phone;
+    if ('email' in patch) row.email = patch.email;
     if ('color' in patch) row.color = patch.color;
     if ('showPhone' in patch) row.show_phone = patch.showPhone;
     if ('showEmail' in patch) row.show_email = patch.showEmail;
@@ -244,6 +286,36 @@ const Store = {
     if (error) throw error;
     this.hydrateCard(data);
     return this.state.me;
+  },
+
+  /* Links could only ever be created during onboarding — there was no add
+     and no remove anywhere in the app. A Calendly that moved, or a URL with
+     a typo in it, was a permanently broken button on the user's public card.
+
+     Appended after the current highest position rather than renumbering the
+     whole set: the public card orders by position, and rewriting every row
+     on each add would churn rows for no visible gain. */
+  async addLink(link) {
+    if (!this.state.me.id) throw new Error('No card yet — finish setup first.');
+    const position = this.state.me.links.reduce((m, l) => Math.max(m, Number(l.position) || 0), -1) + 1;
+    const { data, error } = await sb.from('card_links').insert({
+      card_id: this.state.me.id, label: link.label, url: link.url, type: link.type, clicks: 0, position
+    }).select().single();
+    if (error) throw error;
+    this.state.me.links.push({
+      id: data.id, label: data.label, url: data.url, type: data.type, clicks: data.clicks, position: data.position
+    });
+    return data;
+  },
+
+  /* card_id is in the filter as well as id. RLS already restricts this to
+     the owner's own links, but a delete whose only predicate is a client-
+     supplied id is one policy regression away from deleting someone else's
+     row, and the extra term costs nothing. */
+  async removeLink(id) {
+    const { error } = await sb.from('card_links').delete().eq('id', id).eq('card_id', this.state.me.id);
+    if (error) throw error;
+    this.state.me.links = this.state.me.links.filter(l => l.id !== id);
   },
 
   /* Anonymous-visitor analytics — routed through the two SECURITY DEFINER
@@ -293,9 +365,27 @@ const Store = {
 
     const label = src;
     await sb.from('contact_history').insert({ contact_id: contact.id, ts: iso(metTs), type: 'exchange', label });
-    await sb.from('card_events').insert({
-      card_id: this.state.me.id, contact_id: contact.id, type: 'save', label: info.name + ' — ' + src.toLowerCase()
+    /* 'contact_added', not 'save'. This path is the OWNER adding someone —
+       "Add a contact" in the Contacts tab, and the in-app "Simulate a scan".
+       'save' is reserved for a visitor sharing their info back through
+       submit_share_back. They were the same event type, which meant the
+       share-back rate limit — which counted 'save' rows on the card — was
+       tripped by the owner's own data entry: typing in twenty business
+       cards after a conference locked inbound share-backs out of your own
+       card for the next ten minutes. See
+       supabase/migrations/20260808090000_share_back_rate_limit_fix.sql;
+       card_stats counts both values, so Insights does not change. */
+    /* Checked, not fire-and-forget. supabase-js RESOLVES with {error} rather
+       than rejecting, so an unchecked insert here fails invisibly — and the
+       failure this guards against is specific: if this JS ever runs against a
+       database that predates the migration above, 'contact_added' violates
+       card_events_type_check, the contact still saves, the user sees success,
+       and only the activity event silently vanishes. Surfacing it turns a
+       deploy-ordering mistake into something you can actually see. */
+    const { error: evErr } = await sb.from('card_events').insert({
+      card_id: this.state.me.id, contact_id: contact.id, type: 'contact_added', label: info.name + ' — ' + src.toLowerCase()
     });
+    if (evErr) throw evErr;
 
     await this.refreshContactsAndEvents();
     return this.contact(contact.id);

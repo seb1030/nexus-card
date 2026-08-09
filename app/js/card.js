@@ -114,37 +114,141 @@ const CardView = {
   },
 
   /* ---- edit sheet ---- */
-  editSheet() {
+  /* The sheet used to expose name, title, company and colour only, and
+     store.updateCardFields had no phone/email branch to save them with even
+     if it had. So the two fields the card exists to hand over — the phone
+     number on the public card, the email in every downloaded vCard — were
+     write-once at onboarding: a typo'd address was permanent unless the user
+     deleted their whole account and started again. Links were the same, with
+     no add or remove anywhere in the app at all.
+
+     `draft` carries the values currently typed into the sheet across a
+     re-render. Adding or removing a link rebuilds this markup, and without
+     it every uncommitted edit above the Links section would silently revert
+     to the last saved value. */
+  editSheet(draft) {
     const me = Store.state.me;
+    const d = Object.assign({
+      name: me.name, title: me.title, company: me.company,
+      phone: me.phone, email: me.email,
+      showPhone: me.fields.phone, showEmail: me.fields.email
+    }, draft || {});
+    /* Index, not the id string. esc() emits HTML entities, and the HTML
+       parser decodes them BEFORE the JS parser sees the attribute — so an id
+       containing a quote would break out of an interpolated onclick even
+       though it looks escaped. Server-generated UUIDs make that unreachable
+       today, but public-card.js was explicitly rewritten to stop doing this
+       (data-link-idx), and matching that is cheaper than relying on the id
+       format never changing. A number cannot break out. */
+    const linkRow = (l, i) => `
+      <div class="row" style="margin-bottom:8px">
+        <span class="pill brand">${esc(l.label)}</span>
+        <span class="sub" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.url)}</span>
+        <button class="btn danger small" onclick="CardView.removeLink(${i})">✕</button>
+      </div>`;
     openSheet(`
       <h2>Edit card</h2>
       <div style="margin-top:12px">
-        <label class="field"><span>Name</span><input type="text" id="ed-name" value="${esc(me.name)}"></label>
-        <label class="field"><span>Title</span><input type="text" id="ed-title" value="${esc(me.title)}"></label>
-        <label class="field"><span>Company</span><input type="text" id="ed-company" value="${esc(me.company)}"></label>
+        <label class="field"><span>Name</span><input type="text" id="ed-name" value="${esc(d.name)}"></label>
+        <label class="field"><span>Title</span><input type="text" id="ed-title" value="${esc(d.title)}"></label>
+        <label class="field"><span>Company</span><input type="text" id="ed-company" value="${esc(d.company)}"></label>
+        <label class="field"><span>Phone</span><input type="tel" id="ed-phone" autocomplete="tel" maxlength="40" value="${esc(d.phone)}" placeholder="+1 (415) 555-0100"></label>
+        <label class="field"><span>Email</span><input type="email" id="ed-email" autocomplete="email" maxlength="320" value="${esc(d.email)}" placeholder="you@company.com"></label>
         <div class="row card-box"><span style="flex:1">Show phone</span>
-          <label class="switch"><input type="checkbox" id="ed-phone" ${me.fields.phone ? 'checked' : ''}><i></i></label></div>
+          <label class="switch"><input type="checkbox" id="ed-show-phone" ${d.showPhone ? 'checked' : ''}><i></i></label></div>
         <div class="row card-box"><span style="flex:1">Show email</span>
-          <label class="switch"><input type="checkbox" id="ed-email" ${me.fields.email ? 'checked' : ''}><i></i></label></div>
+          <label class="switch"><input type="checkbox" id="ed-show-email" ${d.showEmail ? 'checked' : ''}><i></i></label></div>
+        <p class="section-label">Links</p>
+        ${me.links.map(linkRow).join('') || '<p class="sub" style="margin-bottom:8px">No links yet.</p>'}
+        <div class="row" style="margin-bottom:8px">
+          <select id="ed-link-type" style="width:130px">
+            <option>Calendly</option><option>Portfolio</option><option>LinkedIn</option><option>Custom</option>
+          </select>
+          <input type="url" id="ed-link-url" placeholder="https://…">
+          <button class="btn small" onclick="CardView.addLink()">Add</button>
+        </div>
+        <p class="sub" style="margin-bottom:8px;font-size:12px">Links save immediately. Everything above saves when you press Save.</p>
         <p class="section-label">Brand color</p>
         <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
           `<button type="button" class="swatch ${me.color === c ? 'on' : ''}" style="background:${c}" aria-label="Brand colour ${c}" aria-pressed="${me.color === c}" onclick="CardView.saveColor('${c}')"></button>`).join('')}</div>
         <button class="btn" onclick="CardView.saveEdit()">Save</button>
       </div>`);
   },
-  async saveColor(c) {
-    await Store.updateCardFields({ color: c });
-    this.editSheet(); App.renderTab();
+
+  /* Whatever is typed in the sheet right now, so a re-render can restore it.
+     Each field is read defensively — the sheet may already be closed by the
+     time an async handler gets here. */
+  readEdit() {
+    const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
+    const c = id => { const el = document.getElementById(id); return el ? el.checked : null; };
+    const d = {};
+    ['name', 'title', 'company', 'phone', 'email'].forEach(k => {
+      const val = v('ed-' + k);
+      if (val !== null) d[k] = val;
+    });
+    const sp = c('ed-show-phone'); if (sp !== null) d.showPhone = sp;
+    const se = c('ed-show-email'); if (se !== null) d.showEmail = se;
+    return d;
   },
+
+  async addLink() {
+    const type = document.getElementById('ed-link-type').value;
+    const url = document.getElementById('ed-link-url').value.trim();
+    if (!url) { toast('Paste the link’s URL first — it goes on your public card.'); return; }
+    /* http(s) only. public-card.js refuses to open anything else, so any
+       other scheme ships a button that does nothing on the one page that
+       matters — and a stored javascript: URL is only inert for as long as
+       that check stays in place. */
+    if (!/^https?:\/\//i.test(url)) { toast('Links must start with http:// or https://'); return; }
+    const label = { Calendly: 'Book a call', Portfolio: 'View portfolio', LinkedIn: 'LinkedIn', Custom: 'Website' }[type];
+    const draft = this.readEdit();
+    await guard(async () => {
+      await Store.addLink({ label, url, type });
+      this.editSheet(draft);
+      App.renderTab();
+      toast('✓ Link added');
+    }, 'Could not add the link');
+  },
+
+  async removeLink(i) {
+    const link = Store.state.me.links[i];
+    if (!link) return;
+    const draft = this.readEdit();
+    await guard(async () => {
+      await Store.removeLink(link.id);
+      this.editSheet(draft);
+      App.renderTab();
+      toast('✓ Link removed');
+    }, 'Could not remove the link');
+  },
+
+  async saveColor(c) {
+    const draft = this.readEdit();
+    await Store.updateCardFields({ color: c });
+    // Same reason as addLink: re-opening the sheet used to discard anything
+    // the user had already typed but not yet saved.
+    this.editSheet(draft); App.renderTab();
+  },
+
   async saveEdit() {
     const me = Store.state.me;
-    const name = document.getElementById('ed-name').value.trim() || me.name;
-    const title = document.getElementById('ed-title').value.trim();
-    const company = document.getElementById('ed-company').value.trim();
-    const showPhone = document.getElementById('ed-phone').checked;
-    const showEmail = document.getElementById('ed-email').checked;
+    const d = this.readEdit();
+    const name = d.name || me.name;
+    /* An address that cannot receive mail is worse than no address: it is
+       shown on the public card and written into the vCard every visitor
+       downloads, so the mistake propagates into other people's address books
+       where it can never be corrected. Blank stays allowed — that is the
+       user choosing not to publish one. */
+    if (d.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) {
+      toast('That email address doesn’t look right — check it before saving.');
+      return;
+    }
     try {
-      await Store.updateCardFields({ name, title, company, showPhone, showEmail });
+      await Store.updateCardFields({
+        name, title: d.title, company: d.company,
+        phone: d.phone, email: d.email,
+        showPhone: d.showPhone, showEmail: d.showEmail
+      });
     } catch (err) {
       toast('Could not save: ' + err.message);
       return;

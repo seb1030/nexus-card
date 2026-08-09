@@ -160,6 +160,15 @@ const clearBootSkeleton = () => {
     // after the redirect, so poll briefly rather than assuming it's
     // already processed.
     const params = new URLSearchParams(location.search);
+
+    // Landed here from a sign-in link and we DO have a card — the recovery
+    // worked. Confirm it, so the user knows this is their existing card and
+    // not a new one.
+    if (params.get('signedin') === '1') {
+      history.replaceState({}, '', location.pathname);
+      toast('✓ Signed in — your card and contacts are back');
+    }
+
     const checkoutResult = params.get('checkout');
     if (checkoutResult) {
       history.replaceState({}, '', location.pathname);
@@ -212,5 +221,15 @@ const clearBootSkeleton = () => {
   } else {
     document.getElementById('app').classList.add('hidden');
     Onboarding.start();
+    /* Arriving with ?signedin=1 but NO card means the sign-in link did not
+       produce the session it promised — an expired link, or a redirect URL
+       missing from the Supabase allowlist, which sends the user here on a
+       fresh anonymous account instead. Silently showing onboarding is how a
+       returning user ends up building a second card and stranding the first;
+       say so instead. */
+    if (new URLSearchParams(location.search).get('signedin') === '1') {
+      history.replaceState({}, '', location.pathname);
+      toast('That sign-in link didn’t work — it may have expired. Send a fresh one.');
+    }
   }
 })();
