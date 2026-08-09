@@ -7,7 +7,22 @@
 const SUPABASE_URL = 'https://aryfefzkqqaaauyrddwp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_sArDqWhtHCH-KgzlzjVG_g_QNiNAUx8';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* flowType pinned to the value this SDK version already resolves to, rather
+   than left to the default. It is load-bearing for account recovery: under
+   `implicit` the session comes back in the URL fragment, so a sign-in link
+   works on ANY device -- which is the entire point of the feature, since the
+   user reaching for it is typically on a new phone. Under `pkce` the code
+   verifier lives in the originating browser's storage, so that same link
+   opened anywhere else silently fails to sign them in.
+
+   PKCE is the more secure default in general (an implicit-flow token can
+   leak through referrers and browser history) and is worth revisiting, but
+   only together with a same-device story for recovery. Pinning it here means
+   a future supabase-js upgrade that changes the default cannot quietly break
+   cross-device sign-in. */
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { flowType: 'implicit' }
+});
 
 const SupabaseAuth = {
   async ensureSession() {

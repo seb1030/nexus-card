@@ -70,7 +70,7 @@ const Onboarding = {
     document.getElementById('onboarding').innerHTML = `
       <h1>Check your email</h1>
       <p class="sub">We sent a sign-in link to <b>${esc(email)}</b>. Open it and your card comes back with everything on it.</p>
-      <p class="sub" style="margin-top:12px;font-size:12px">Open the link in <b>this browser</b> — under the PKCE flow the verifier is stored here, so a link opened in a different browser (or an email app's built-in viewer) will not sign you in.</p>
+      <p class="sub" style="margin-top:12px;font-size:12px">Open it on whichever device you want your card on — a new phone, a work laptop, anywhere. The link carries the session with it.</p>
       <button class="btn ghost" style="margin-top:14px" onclick="Onboarding.step=1;Onboarding.render()">← Back to setup</button>`;
   },
 
