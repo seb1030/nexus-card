@@ -127,6 +127,45 @@ Contacts, reminders and card data are mutable and shared across devices, so a
 stale cached copy would be indistinguishable from real data. Verified in the
 browser: 17 shell entries, zero cross-origin, zero API responses.
 
+## Accepted risk: `get_public_card` has no rate limit
+
+Decided 2026-08-09. This is a known gap, deliberately left open — not an
+oversight. Written down so it stays a decision rather than becoming a
+surprise.
+
+`get_public_card(p_slug)` is anon-callable, takes only a slug, and returns
+the card's phone and email. It is the actual PII read path, and it has no
+ceiling: a caller can invoke it without limit.
+
+**Why it is acceptable today.** The exploit that mattered was enumeration —
+guess slugs, harvest contact details. Slugs are now 80 bits of CSPRNG
+(`20260809032658` and the `slugify` change), and every legacy 4-character
+slug has been deleted from production, so there is nothing left to guess.
+An unthrottled endpoint whose keyspace is unsearchable is a load concern,
+not a disclosure one.
+
+**Why it was not simply throttled.** The function is `STABLE`. Routing it
+through `rate_limit_hit` makes it `VOLATILE` and puts a database *write* on
+the critical path of the one page that must never fail — a stranger holding
+a phone at a conference. A throttle that errors there is worse than no
+throttle at all.
+
+**Why the edge/WAF answer is not a checkbox.** The browser calls
+`<project>.supabase.co` directly, which sits behind *Supabase's* Cloudflare,
+not one we control. Rate limiting at the edge first requires proxying card
+reads through our own domain (e.g. a Netlify Edge Function at `/api/card`),
+which adds a hop to that same must-not-fail page. Real work, not config.
+
+**Revisit when** there are real cards in the wild and `get_public_card`
+traffic is measurable — then the ceiling can be set from observed numbers
+instead of guessed. Two viable paths at that point:
+
+1. Proxy card reads through our own domain and rate limit at that edge.
+2. An in-database throttle with a generous ceiling, written **fail-open** so
+   a throttle error can never blank a card.
+
+Until then: leaving it open is the considered choice.
+
 ## Going live (test → live mode)
 
 The failure mode this checklist exists to prevent: live-mode price IDs differ from test-mode ones, and an unmapped price used to fall back to `plan: "free"` — silently downgrading every paying customer. That fallback now throws instead, so a missed step fails loudly rather than quietly.
