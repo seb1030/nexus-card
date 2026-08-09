@@ -72,12 +72,30 @@ const InstallPrompt = {
      ✕ means "stop asking" -- someone who opened this sheet may not have
      actually finished the steps, and permanently silencing the reminder
      the moment they view instructions defeats the point of having it. */
+  /* Inline SVG replica of iOS's own "square and arrow up" Share glyph,
+     rather than a bordered-arrow approximation -- on a screen full of
+     Safari chrome, the icon has to actually match what the user is
+     looking for, not just gesture at "up". Same stroke style as the
+     tab-bar icons elsewhere in the app (viewBox 24, stroke-width 1.75,
+     round caps) so it doesn't look like a foreign asset dropped in.
+
+     Location text says "top-right of the address bar" specifically
+     because that is where current iOS Safari puts it -- confirmed
+     against a real device. Older iOS put this in a bottom toolbar
+     instead; if Apple relocates it again this line is the one to fix. */
+  shareIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="17" height="17" style="vertical-align:-3px" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v12"/><path d="M7.5 7.5L12 3l4.5 4.5"/>
+      <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
+    </svg>`;
+  },
+
   showIOSInstructions() {
     openSheet(`
       <h2>Add Nexus to your Home Screen</h2>
       <p class="sub" style="margin:6px 0 16px">Four taps, no App Store.</p>
       <ol style="margin:0 0 18px;padding-left:20px;line-height:1.9;font-size:14.5px">
-        <li>Tap the <b>Share</b> icon <span style="display:inline-block;border:1.5px solid currentColor;border-radius:4px;padding:1px 5px;font-size:13px">⬆︎</span> in Safari's toolbar</li>
+        <li>Tap the Share icon ${this.shareIconSvg()} — top-right of the address bar</li>
         <li>Scroll down the menu that opens</li>
         <li>Tap <b>Add to Home Screen</b></li>
         <li>Tap <b>Add</b> in the top-right corner</li>
