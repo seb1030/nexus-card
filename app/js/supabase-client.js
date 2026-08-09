@@ -27,7 +27,26 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const SupabaseAuth = {
   async ensureSession() {
     const { data: { session } } = await sb.auth.getSession();
-    if (session) return session;
+    if (session && await this.sessionUserStillExists()) return session;
+
+    /* Session existed but its user does not. getSession() only reads
+       localStorage -- it never asks the server whether that user is still
+       there -- so a JWT for a deleted account stays cryptographically valid
+       until it expires and sails straight through. Every write then fails
+       with `violates foreign key constraint "cards_owner_id_fkey"`, shown to
+       the user as raw Postgres, and it never resolves on its own: reloading
+       re-reads the same dead session from storage. The only escape is
+       manually clearing site data, which nobody will find.
+
+       This is reachable in normal use, not just after an admin cleanup:
+       delete-account removes the auth user, and any other tab still open on
+       the app keeps its now-orphaned session. Discarding it locally and
+       starting fresh is always the right move -- the account is gone either
+       way, and an anonymous session is exactly what a new visitor gets. */
+    if (session) {
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* already gone */ }
+    }
+
     const { data, error } = await sb.auth.signInAnonymously();
     if (error) {
       throw new Error(
@@ -36,6 +55,26 @@ const SupabaseAuth = {
       );
     }
     return data.session;
+  },
+
+  /* Verifies the cached session against the server. getUser() hits
+     /auth/v1/user, so a deleted or otherwise invalid user comes back as an
+     error rather than being taken on trust.
+
+     A network failure must NOT be read as "user is gone" -- that would sign
+     people out every time their connection blips, and on a conference wifi
+     that is the common case. Only an explicit auth error counts; anything
+     that looks like a transport problem keeps the existing session, and the
+     app fails later in its normal way if the connection really is down. */
+  async sessionUserStillExists() {
+    try {
+      const { error } = await sb.auth.getUser();
+      if (!error) return true;
+      const status = error.status || 0;
+      return !(status === 401 || status === 403 || status === 404);
+    } catch (e) {
+      return true;
+    }
   },
 
   /* Magic-link sign-in, for someone who already has a card and is opening
