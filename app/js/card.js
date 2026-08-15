@@ -1,3 +1,19 @@
+/* Inline stroke icons, replacing the emoji this UI used to render (📞 ✉️
+   ▦ 🔗 ⬇ 🗑). Emoji are a different glyph on every platform, sit on their
+   own baseline, ignore the surrounding colour, and several rendered as
+   tofu on Android and Windows -- the same reason the tab bar dropped its
+   glyphs for SVG. Same drawing conventions as those: 24 viewBox, 1.75
+   stroke, round caps, currentColor. */
+const Icon = {
+  _(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; },
+  phone() { return this._('<path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/>'); },
+  mail() { return this._('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>'); },
+  qr() { return this._('<rect x="3.5" y="3.5" width="6" height="6" rx="1.2"/><rect x="14.5" y="3.5" width="6" height="6" rx="1.2"/><rect x="3.5" y="14.5" width="6" height="6" rx="1.2"/><path d="M14.5 14.5h3v3M20.5 17.5v3h-3"/>'); },
+  link() { return this._('<path d="M10 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7l-1.4 1.4"/><path d="M14 10.5a4 4 0 0 0-5.7 0l-2.8 2.8a4 4 0 0 0 5.7 5.7l1.4-1.4"/>'); },
+  download() { return this._('<path d="M12 3.5v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M4.5 17v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2"/>'); },
+  trash() { return this._('<path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7"/><path d="M6.5 6.5l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12"/>'); },
+};
+
 /* My Card tab — preview, edit, share (QR/link), recipient simulation */
 const CardView = {
   render() {
@@ -5,7 +21,7 @@ const CardView = {
     document.documentElement.style.setProperty('--brand', me.color);
     return `
       <div class="row" style="margin-bottom:14px">
-        <div><h1>My Card</h1><p class="sub">Live at <b>${esc(Store.cardUrl().replace(/^https?:\/\//, ''))}</b></p></div>
+        <div><h1>My Card</h1><p class="sub">Live and ready to share</p></div>
         <span class="spacer"></span>
         <button class="btn small secondary" onclick="CardView.editSheet()">Edit</button>
       </div>
@@ -19,27 +35,38 @@ const CardView = {
       <p class="sub" style="margin-top:10px;text-align:center">“Simulate a scan” shows what happens when someone scans your QR.</p>
 
       <p class="section-label">Sharing options</p>
-      <div class="share-opt"><div class="feed-ic">▦</div><div style="flex:1"><b>QR code</b><div class="sub">Works offline — static QR</div></div><button class="btn small secondary" onclick="CardView.shareSheet()">Show</button></div>
-      <div class="share-opt"><div class="feed-ic">🔗</div><div style="flex:1"><b>Card link</b><div class="sub">${esc(Store.cardUrl())}</div></div><button class="btn small secondary" onclick="CardView.copyLink()">Copy</button></div>
+      <div class="share-opt"><div class="feed-ic">${Icon.qr()}</div><div style="flex:1"><b>QR code</b><div class="sub">Works offline — static QR</div></div><button class="btn small secondary" onclick="CardView.shareSheet()">Show</button></div>
+      <!-- The full URL was printed here in full. It is a long random slug,
+           so it wrapped to three lines, pushed the row out of shape and
+           told the user nothing they could act on -- the Copy button is
+           the actual affordance. -->
+      <div class="share-opt"><div class="feed-ic">${Icon.link()}</div><div style="flex:1"><b>Card link</b><div class="sub">Copy and send it anywhere</div></div><button class="btn small secondary" onclick="CardView.copyLink()">Copy</button></div>
       <p class="section-label">Your data</p>
-      <div class="share-opt"><div class="feed-ic">⬇</div><div style="flex:1"><b>Download your data</b><div class="sub">Everything we hold, as JSON</div></div><button class="btn small secondary" onclick="Account.exportData(this)">Export</button></div>
-      <div class="share-opt"><div class="feed-ic">🗑</div><div style="flex:1"><b>Delete your account</b><div class="sub">Permanent — card, contacts and reminders</div></div><button class="btn small secondary" onclick="Account.confirmDelete()">Delete</button></div>
+      <div class="share-opt"><div class="feed-ic">${Icon.download()}</div><div style="flex:1"><b>Download your data</b><div class="sub">Everything we hold, as JSON</div></div><button class="btn small secondary" onclick="Account.exportData(this)">Export</button></div>
+      <div class="share-opt"><div class="feed-ic danger">${Icon.trash()}</div><div style="flex:1"><b>Delete your account</b><div class="sub">Permanent — card, contacts and reminders</div></div><button class="btn small secondary" onclick="Account.confirmDelete()">Delete</button></div>
       ${Store.planFooter()}`;
   },
 
   bizCard(me, isRecipient) {
     const links = me.links.map(l =>
       `<button class="biz-link" onclick="CardView.linkClick('${l.id}', ${isRecipient})">${esc(l.label)}</button>`).join('');
+    /* Kept in lockstep with the same block in public-card.js: the owner's
+       preview and the card a stranger actually opens must render
+       identically, or the preview stops being a preview. */
     const rows = [];
-    if (me.fields.phone && me.phone) rows.push('📞 ' + esc(me.phone));
-    if (me.fields.email && me.email) rows.push('✉️ ' + esc(me.email));
+    if (me.fields.phone && me.phone) rows.push(`<span class="biz-row-ic">${Icon.phone()}</span><span>${esc(me.phone)}</span>`);
+    if (me.fields.email && me.email) rows.push(`<span class="biz-row-ic">${Icon.mail()}</span><span>${esc(me.email)}</span>`);
     return `
       <div class="biz-card">
-        <div class="biz-logo" style="background:${me.color}">${esc(me.initials || 'NC')}</div>
+        <!-- No inline background: the monogram is a white tile with the
+             brand colour as its text, sitting on the gradient cover. The
+             colour reaches it through --brand on the root, which
+             CardView.render already sets from me.color. -->
+        <div class="biz-logo">${esc(me.initials || 'NC')}</div>
         <div class="biz-name">${esc(me.name)}</div>
         <div class="biz-title">${esc(me.title)}${me.company ? ' @ ' + esc(me.company) : ''}</div>
         <div class="biz-links">${links}</div>
-        <div class="biz-contact-rows">${rows.map(r => `<div>${r}</div>`).join('')}</div>
+        <div class="biz-contact-rows">${rows.map(r => `<div class="biz-row">${r}</div>`).join('')}</div>
         ${isRecipient ? `
           <div class="biz-actions">
             <button class="btn" onclick="Recipient.saveContact()">Save to Contacts</button>

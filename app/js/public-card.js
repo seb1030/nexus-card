@@ -70,17 +70,28 @@ function render() {
      owner inject arbitrary handlers that ran on every visitor's browser. */
   const links = LINKS.map((l, i) =>
     `<button class="biz-link" data-link-idx="${i}">${esc(l.label)}</button>`).join('');
+  /* Inline stroke icons rather than emoji, matching Icon in card.js. This
+     page cannot import that object (card.html deliberately loads only
+     supabase-client.js and this file, so a stranger's page pulls nothing
+     it doesn't need), so the two paths are duplicated -- they must be
+     changed together. */
+  const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const rows = [];
-  if (CARD.phone) rows.push('📞 ' + esc(CARD.phone));
-  if (CARD.email) rows.push('✉️ ' + esc(CARD.email));
+  if (CARD.phone) rows.push(`<span class="biz-row-ic">${svg('<path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/>')}</span><span>${esc(CARD.phone)}</span>`);
+  if (CARD.email) rows.push(`<span class="biz-row-ic">${svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>')}</span><span>${esc(CARD.email)}</span>`);
+
+  /* The card owner's colour drives the cover gradient and every tint on
+     this page, exactly as it does in the app. Set on the root rather than
+     inline on the logo so one property re-skins the whole card. */
+  document.documentElement.style.setProperty('--brand', CARD.color || '#4f46e5');
+
   root.innerHTML = `
-    <p class="sub" style="text-align:center;margin-bottom:16px">🌐 ${esc(location.host)}/card.html?u=${esc(slug)}</p>
     <div class="biz-card">
-      <div class="biz-logo" style="background:${esc(CARD.color || '#4f46e5')}">${esc(CARD.initials || 'NC')}</div>
+      <div class="biz-logo">${esc(CARD.initials || 'NC')}</div>
       <div class="biz-name">${esc(CARD.name)}</div>
       <div class="biz-title">${esc(CARD.title)}${CARD.company ? ' @ ' + esc(CARD.company) : ''}</div>
       <div class="biz-links">${links}</div>
-      <div class="biz-contact-rows">${rows.map(r => `<div>${r}</div>`).join('')}</div>
+      <div class="biz-contact-rows">${rows.map(r => `<div class="biz-row">${r}</div>`).join('')}</div>
       <div class="biz-actions">
         <button class="btn" onclick="saveContact()">Save to Contacts</button>
         <button class="btn secondary" onclick="shareThisCard()">Share</button>

@@ -1,18 +1,56 @@
-/* Nexus Card — one font, brand color + black + gray (per spec) */
+/* Nexus Card
+   ---------------------------------------------------------------------
+   Direction: "your color, not ours." Competitors impose one house colour
+   on every user (Blinq is always coral, HiHello always purple), so every
+   card made with them looks like their product. Nexus already asks the
+   user to pick a brand colour, so that pick is the only chroma in the
+   system: neutrals stay cool and architectural, and --brand drives the
+   card's gradient, its accents and its tints. Two users' cards should
+   look like different cards, not two rows of the same template.
+
+   Neutrals are deliberately blue-cool rather than the warm cream that
+   every digital-card app currently uses -- warm cream + serif is the
+   look being copied everywhere right now, and it also fights whatever
+   colour the user chose. Cool greys stay out of the way of any hue.
+
+   Every derived colour comes from --brand via color-mix, so setting one
+   custom property re-skins the whole app. Each color-mix declaration is
+   preceded by a flat fallback for browsers that lack it. */
 :root {
   --brand: #4f46e5;
-  --ink: #111114;
-  --gray-7: #3f3f46;
-  --gray-5: #71717a;
-  --gray-3: #d4d4d8;
-  --gray-2: #e9e9ee;
-  --gray-1: #f4f4f6;
-  --bg: #fafafa;
-  --card: #ffffff;
+
+  /* Cool architectural neutrals. Named for role, not for lightness, so
+     the scale can be retuned without renaming every usage. */
+  --ink: #0c1222;        /* headings, primary text */
+  --slate: #626b84;      /* secondary text, labels */
+  --slate-deep: #3a4358; /* body text on light surfaces */
+  --line: #e4e7ef;       /* hairlines and borders */
+  --ground: #f1f3f8;     /* app background */
+  --sunken: #e8ebf3;     /* pressed states, skeletons */
+  --paper: #ffffff;      /* card surfaces */
   --red: #dc2626;
-  --radius: 14px;
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.06);
+
+  /* Back-compat aliases: these names are used across the existing
+     markup and JS. Kept pointing at the new scale rather than doing a
+     rename sweep, which would touch every file for no visual gain. */
+  --gray-7: var(--slate-deep);
+  --gray-5: var(--slate);
+  --gray-3: #c3c9d8;
+  --gray-2: var(--line);
+  --gray-1: #f5f7fb;
+  --bg: var(--ground);
+  --card: var(--paper);
+
+  --radius: 16px;
+  --radius-lg: 22px;
+  /* Two-layer shadows: a tight contact shadow for the edge, a wide soft
+     one for lift. Tinted with the ink navy rather than pure black, so
+     shadows read as depth instead of dirt. */
+  --shadow: 0 1px 2px rgba(12,18,34,.04), 0 6px 18px -6px rgba(12,18,34,.10);
+  --shadow-lift: 0 1px 2px rgba(12,18,34,.05), 0 16px 36px -12px rgba(12,18,34,.20);
+
   font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  font-synthesis-weight: none;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
@@ -89,34 +127,102 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 .switch input:checked + i::after { transform: translateX(18px); }
 
 /* ---------- business card ---------- */
+/* ---------- the card ----------
+   The signature object of the product, and the one screen a stranger
+   sees. Structured like a physical card rather than a form result: a
+   saturated cover band, the monogram breaking that band's lower edge,
+   then a quiet body. The exact same markup renders for the owner and
+   for a recipient on card.html, so the two can never drift apart --
+   which is why this is done entirely in CSS on the existing classes. */
 .biz-card {
-  background: var(--card); border-radius: 20px; box-shadow: var(--shadow);
-  padding: 26px 22px; text-align: center;
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  padding: 0 22px 26px;
+  text-align: center;
+  overflow: hidden;
 }
+/* The cover band. Sits behind the monogram, which is pulled up over it. */
+.biz-card::before {
+  content: '';
+  display: block;
+  height: 96px;
+  margin: 0 -22px 0;
+  background: var(--brand);
+  background: linear-gradient(135deg,
+    color-mix(in oklab, var(--brand) 88%, white),
+    color-mix(in oklab, var(--brand) 64%, var(--ink)));
+}
+/* A circle, not a squircle: these are a person's initials standing in for
+   a face, and every contact list in the world draws that as a circle. At
+   80px square it also simply dominated the card. */
 .biz-logo {
-  width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 14px;
-  background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 700; letter-spacing: .02em;
+  position: relative;
+  width: 72px; height: 72px; border-radius: 50%;
+  margin: -36px auto 13px;
+  background: var(--paper);
+  color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; letter-spacing: -.01em;
+  /* The ring is a shadow rather than a border so it never affects layout
+     or the 72px box, and it reads as the card punching through. */
+  box-shadow: 0 0 0 5px var(--paper), 0 10px 24px -8px rgba(12,18,34,.35);
 }
-.biz-name { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
-.biz-title { color: var(--gray-5); font-size: 14px; margin-top: 3px; }
-.biz-links { margin-top: 18px; display: flex; flex-direction: column; gap: 9px; }
+.biz-name { font-size: 23px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; }
+.biz-title { color: var(--slate); font-size: 14px; margin-top: 4px; line-height: 1.4; }
+.biz-links { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+/* A card with no links still rendered this container, leaving a 20px gap
+   between the name and the contact rows that looked like a layout bug. */
+.biz-links:empty, .biz-contact-rows:empty { display: none; }
 .biz-link {
-  display: block; padding: 12px; border-radius: 12px; background: var(--brand); color: #fff;
-  font-weight: 600; font-size: 14px; text-decoration: none; border: 0; font: inherit; cursor: pointer;
+  display: block; padding: 13px; border-radius: 13px;
+  background: var(--brand); color: #fff;
+  font-weight: 600; font-size: 14.5px; text-decoration: none; border: 0; font: inherit; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(12,18,34,.06);
 }
-.biz-link.alt { background: var(--gray-1); color: var(--ink); border: 1px solid var(--gray-2); }
-.biz-contact-rows { margin-top: 16px; font-size: 13px; color: var(--gray-7); display: flex; flex-direction: column; gap: 4px; }
-.biz-actions { display: flex; gap: 8px; margin-top: 18px; }
-.biz-actions .btn { font-size: 14px; padding: 12px; }
+.biz-link:active { filter: brightness(.94); }
+.biz-link.alt { background: var(--gray-1); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
+
+/* Contact rows: an icon chip tinted from the brand, then the value.
+   Left-aligned inside a centred card on purpose -- a phone number and an
+   email are data to be read, and centred data is harder to scan. */
+.biz-contact-rows { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.biz-row {
+  display: flex; align-items: center; gap: 11px;
+  font-size: 14px; color: var(--slate-deep);
+  padding: 9px 11px; border-radius: 12px;
+  background: var(--gray-1); border: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.biz-row-ic {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brand);
+  background: #eef2ff;
+  background: color-mix(in oklab, var(--brand) 12%, white);
+}
+.biz-row-ic svg { width: 16px; height: 16px; }
+.biz-actions { display: flex; gap: 8px; margin-top: 20px; }
+/* 13.5px, not 14: "Save to Contacts" wrapped to two lines against
+   "Share" at 14px, which left the pair looking misaligned on the one
+   screen a stranger judges the product by. */
+.biz-actions .btn { font-size: 13.5px; padding: 13px 10px; }
 
 /* ---------- list cards ---------- */
-.card-box { background: var(--card); border: 1px solid var(--gray-2); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
-.card-box.tappable { cursor: pointer; }
-.card-box.tappable:active { background: var(--gray-1); }
+.card-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(12,18,34,.03); }
+.card-box.tappable { cursor: pointer; transition: background .12s, border-color .12s; }
+.card-box.tappable:active { background: var(--gray-1); border-color: var(--gray-3); }
+/* Contact initials carry the brand tint rather than flat grey: in a long
+   list these are the only per-person mark there is, and grey circles all
+   read as the same person at a glance. */
 .avatar {
-  width: 42px; height: 42px; border-radius: 50%; background: var(--gray-2); color: var(--gray-7);
-  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none;
+  width: 42px; height: 42px; border-radius: 50%; flex: none;
+  color: var(--brand);
+  background: #eef2ff;
+  background: color-mix(in oklab, var(--brand) 13%, white);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
 }
 .c-name { font-weight: 650; font-size: 15px; }
 .c-meta { font-size: 12.5px; color: var(--gray-5); margin-top: 1px; }
@@ -162,16 +268,19 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 
 /* ---------- analytics ---------- */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.stat { background: var(--card); border: 1px solid var(--gray-2); border-radius: var(--radius); padding: 14px; }
-.stat b { font-size: 24px; letter-spacing: -.02em; display: block; }
-.stat span { font-size: 12px; color: var(--gray-5); }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 15px 14px; box-shadow: 0 1px 2px rgba(12,18,34,.03); }
+/* Tabular figures so the numbers in a stat row line up on their digits
+   instead of jittering as values change. */
+.stat b { font-size: 27px; letter-spacing: -.03em; display: block; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--slate); margin-top: 2px; display: block; }
 .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
 .bar-row .bar { height: 8px; border-radius: 4px; background: var(--brand); }
 .bar-row .lbl { width: 110px; flex: none; color: var(--gray-7); }
 .bar-row .n { color: var(--gray-5); font-size: 12px; }
 .feed-item { display: flex; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--gray-2); font-size: 13.5px; }
 .feed-item:last-child { border-bottom: 0; }
-.feed-ic { width: 30px; height: 30px; border-radius: 8px; background: var(--gray-1); display: flex; align-items: center; justify-content: center; flex: none; }
+.feed-ic { width: 34px; height: 34px; border-radius: 11px; background: var(--gray-1); color: var(--slate); display: flex; align-items: center; justify-content: center; flex: none; }
+.feed-ic svg { width: 17px; height: 17px; }
 .feed-time { color: var(--gray-5); font-size: 12px; }
 
 /* ---------- toasts ---------- */
@@ -186,8 +295,15 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 .ob-progress { display: flex; gap: 6px; margin-bottom: 26px; }
 .ob-progress i { height: 4px; flex: 1; border-radius: 2px; background: var(--gray-2); }
 .ob-progress i.on { background: var(--brand); }
-.share-opt { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--gray-2); border-radius: var(--radius); background: var(--card); margin-bottom: 10px; }
-.share-opt .feed-ic { background: #eef2ff; }
+.share-opt { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); margin-bottom: 9px; box-shadow: 0 1px 2px rgba(12,18,34,.03); }
+.share-opt .feed-ic {
+  color: var(--brand);
+  background: #eef2ff;
+  background: color-mix(in oklab, var(--brand) 12%, white);
+}
+/* The one destructive row in the app reads red, not brand -- a delete
+   control tinted the same as "share my card" is a trap. */
+.share-opt .feed-ic.danger { color: var(--red); background: #fef2f2; }
 
 /* color swatches */
 .swatches { display: flex; gap: 10px; margin: 6px 0 14px; }
@@ -265,6 +381,9 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 @media (prefers-reduced-motion: reduce) {
   .get-own { transition: none; }
   .get-own:active { transform: none; }
+  /* Added with the card-box hover/press tint -- a transition is still
+     motion, and this list is long enough to matter. */
+  .card-box.tappable { transition: none; }
 }
 
 /* ---- Pipeline card: tappable body + explicit Move control.
