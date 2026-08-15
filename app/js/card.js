@@ -61,7 +61,15 @@ const CardView = {
        preview and the card a stranger actually opens must render
        identically, or the preview stops being a preview. */
     const rows = [];
-    if (me.fields.phone && me.phone) rows.push(`<span class="biz-row-ic">${Icon.phone()}</span><span>${esc(me.phone)}</span>`);
+    /* The label only appears when there are actually two numbers to tell
+       apart. Someone with a single number does not need it captioned
+       "Mobile" — that is the app explaining its own data model. */
+    const twoPhones = !!(me.fields.phone && me.phone && me.fields.phoneAlt && me.phoneAlt);
+    const phoneRow = (value, label) =>
+      `<span class="biz-row-ic">${Icon.phone()}</span><span>${esc(value)}${
+        twoPhones ? `<span class="biz-row-tag">${esc(label)}</span>` : ''}</span>`;
+    if (me.fields.phone && me.phone) rows.push(phoneRow(me.phone, me.phoneLabel));
+    if (me.fields.phoneAlt && me.phoneAlt) rows.push(phoneRow(me.phoneAlt, me.phoneAltLabel));
     if (me.fields.email && me.email) rows.push(`<span class="biz-row-ic">${Icon.mail()}</span><span>${esc(me.email)}</span>`);
     return `
       <div class="biz-card">
@@ -170,6 +178,7 @@ const CardView = {
     const d = Object.assign({
       name: me.name, title: me.title, company: me.company,
       phone: me.phone, email: me.email,
+      phoneAlt: me.phoneAlt, phoneLabel: me.phoneLabel, phoneAltLabel: me.phoneAltLabel,
       showPhone: me.fields.phone, showEmail: me.fields.email
     }, draft || {});
     /* Index, not the id string. esc() emits HTML entities, and the HTML
@@ -214,7 +223,23 @@ const CardView = {
         <label class="field"><span>Name</span><input type="text" id="ed-name" value="${esc(d.name)}"></label>
         <label class="field"><span>Title</span><input type="text" id="ed-title" value="${esc(d.title)}"></label>
         <label class="field"><span>Company</span><input type="text" id="ed-company" value="${esc(d.company)}"></label>
-        <label class="field"><span>Phone</span><input type="tel" id="ed-phone" autocomplete="tel" maxlength="40" value="${esc(d.phone)}" placeholder="+1 (415) 555-0100"></label>
+        <!-- Two numbers, because one assumed one working life: a company
+             handset plus a personal one, or business run entirely from a
+             personal mobile. The label is user-chosen rather than fixed to
+             Work/Personal precisely because for many people the personal
+             number IS the work number, and publishing it as "Personal"
+             would be wrong. -->
+        <div class="field-pair">
+          <label class="field" style="flex:1"><span>Phone</span><input type="tel" id="ed-phone" autocomplete="tel" maxlength="40" value="${esc(d.phone)}" placeholder="+1 (415) 555-0100"></label>
+          <label class="field field-tag"><span>Label</span>${this.labelSelect('ed-phone-label', d.phoneLabel)}</label>
+        </div>
+        <div class="field-pair">
+          <!-- "optional" lives in the placeholder, not the label: as label
+               text it wrapped to a second line, which pushed this input out
+               of alignment with the one above it. -->
+          <label class="field" style="flex:1"><span>Second phone</span><input type="tel" id="ed-phone-alt" autocomplete="tel" maxlength="40" value="${esc(d.phoneAlt)}" placeholder="Optional"></label>
+          <label class="field field-tag"><span>Label</span>${this.labelSelect('ed-phone-alt-label', d.phoneAltLabel)}</label>
+        </div>
         <label class="field"><span>Email</span><input type="email" id="ed-email" autocomplete="email" maxlength="320" value="${esc(d.email)}" placeholder="you@company.com"></label>
         <div class="row card-box"><span style="flex:1">Show phone</span>
           <label class="switch"><input type="checkbox" id="ed-show-phone" ${d.showPhone ? 'checked' : ''}><i></i></label></div>
@@ -237,6 +262,17 @@ const CardView = {
       </div>`);
   },
 
+  /* The three labels map 1:1 onto vCard TEL types (CELL / WORK / HOME), so
+     a number saved to someone's phone lands under the right heading. Kept
+     deliberately short — a longer list would need a mapping decision for
+     each new entry and gives the user more to think about than the choice
+     is worth. */
+  PHONE_LABELS: ['Mobile', 'Work', 'Home'],
+  labelSelect(id, selected) {
+    return `<select id="${id}">${this.PHONE_LABELS.map(l =>
+      `<option${l === selected ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  },
+
   /* Whatever is typed in the sheet right now, so a re-render can restore it.
      Each field is read defensively — the sheet may already be closed by the
      time an async handler gets here. */
@@ -248,6 +284,10 @@ const CardView = {
       const val = v('ed-' + k);
       if (val !== null) d[k] = val;
     });
+    // Hyphenated ids, so they cannot come from the camelCase loop above.
+    const alt = v('ed-phone-alt'); if (alt !== null) d.phoneAlt = alt;
+    const pl = v('ed-phone-label'); if (pl !== null) d.phoneLabel = pl;
+    const pal = v('ed-phone-alt-label'); if (pal !== null) d.phoneAltLabel = pal;
     const sp = c('ed-show-phone'); if (sp !== null) d.showPhone = sp;
     const se = c('ed-show-email'); if (se !== null) d.showEmail = se;
     return d;
@@ -339,6 +379,7 @@ const CardView = {
       await Store.updateCardFields({
         name, title: d.title, company: d.company,
         phone: d.phone, email: d.email,
+        phoneAlt: d.phoneAlt, phoneLabel: d.phoneLabel, phoneAltLabel: d.phoneAltLabel,
         showPhone: d.showPhone, showEmail: d.showEmail
       });
     } catch (err) {

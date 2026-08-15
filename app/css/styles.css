@@ -223,6 +223,17 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
   background: color-mix(in oklab, var(--brand) 12%, white);
 }
 .biz-row-ic svg { width: 16px; height: 16px; }
+/* "Mobile" / "Work" beside a number, shown only when there are two to tell
+   apart. Quiet by design: it is a disambiguator, not a heading, so it must
+   not compete with the number itself. */
+.biz-row-tag {
+  margin-left: 8px; font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  color: var(--slate); text-transform: uppercase;
+}
+/* A number and its label sit on one line. The label is a fixed width so
+   the number fields stay aligned down the sheet. */
+.field-pair { display: flex; gap: 8px; align-items: flex-start; }
+.field-pair .field-tag { width: 104px; flex: none; }
 .biz-actions { display: flex; gap: 8px; margin-top: 20px; }
 /* 13.5px, not 14: "Save to Contacts" wrapped to two lines against
    "Share" at 14px, which left the pair looking misaligned on the one

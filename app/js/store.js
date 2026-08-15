@@ -68,8 +68,9 @@ const DEFAULT_STATE = () => ({
   accountSecured: false,        // local-only until real magic-link linking + billing exist
   me: {
     id: null, name: '', title: '', company: '', phone: '', email: '',
+    phoneAlt: '', phoneLabel: 'Mobile', phoneAltLabel: 'Work',
     color: '#4f46e5', initials: '', slug: '', photoUrl: '',
-    fields: { phone: true, email: true },
+    fields: { phone: true, email: true, phoneAlt: true },
     geotag: false,
     accountEmail: '',
     links: []                   // {id,label,url,type,clicks}
@@ -128,7 +129,10 @@ const Store = {
       id: card.id, name: card.name, title: card.title, company: card.company,
       phone: card.phone, email: card.email, color: card.color, initials: card.initials,
       slug: card.slug, photoUrl: card.photo_url || '',
-      fields: { phone: card.show_phone, email: card.show_email },
+      phoneAlt: card.phone_alt || '',
+      phoneLabel: card.phone_label || 'Mobile',
+      phoneAltLabel: card.phone_alt_label || 'Work',
+      fields: { phone: card.show_phone, email: card.show_email, phoneAlt: card.show_phone_alt },
       geotag: card.geotag_enabled,
       links: (card.card_links || [])
         .slice()
@@ -294,6 +298,10 @@ const Store = {
        on the public card and written into every downloaded vCard. */
     if ('phone' in patch) row.phone = patch.phone;
     if ('email' in patch) row.email = patch.email;
+    if ('phoneAlt' in patch) row.phone_alt = patch.phoneAlt;
+    if ('phoneLabel' in patch) row.phone_label = patch.phoneLabel;
+    if ('phoneAltLabel' in patch) row.phone_alt_label = patch.phoneAltLabel;
+    if ('showPhoneAlt' in patch) row.show_phone_alt = patch.showPhoneAlt;
     if ('color' in patch) row.color = patch.color;
     if ('showPhone' in patch) row.show_phone = patch.showPhone;
     if ('showEmail' in patch) row.show_email = patch.showEmail;

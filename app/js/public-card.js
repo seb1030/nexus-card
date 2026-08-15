@@ -77,7 +77,15 @@ function render() {
      changed together. */
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const rows = [];
-  if (CARD.phone) rows.push(`<span class="biz-row-ic">${svg('<path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/>')}</span><span>${esc(CARD.phone)}</span>`);
+  const phoneIcon = svg('<path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/>');
+  // Label shown only when there are two numbers to distinguish, matching
+  // the owner's preview in card.js.
+  const twoPhones = !!(CARD.phone && CARD.phone_alt);
+  const phoneRow = (value, label) =>
+    `<span class="biz-row-ic">${phoneIcon}</span><span>${esc(value)}${
+      twoPhones ? `<span class="biz-row-tag">${esc(label || '')}</span>` : ''}</span>`;
+  if (CARD.phone) rows.push(phoneRow(CARD.phone, CARD.phone_label));
+  if (CARD.phone_alt) rows.push(phoneRow(CARD.phone_alt, CARD.phone_alt_label));
   if (CARD.email) rows.push(`<span class="biz-row-ic">${svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>')}</span><span>${esc(CARD.email)}</span>`);
 
   /* The card owner's colour drives the cover gradient and every tint on
@@ -186,7 +194,18 @@ function buildVCard(card) {
   if (card.title)   lines.push('TITLE:' + vcardEscape(card.title));
   if (card.company) lines.push('ORG:' + vcardEscape(card.company));
   if (card.email)   lines.push('EMAIL;type=INTERNET;type=WORK:' + vcardEscape(card.email));
-  if (card.phone)   lines.push('TEL;type=CELL:' + vcardEscape(card.phone));
+  /* Both numbers, each with the vCard TEL type its label maps to. Without
+     the second line the number would show on the card but silently vanish
+     the moment anyone saved it to their phone -- and landing in someone's
+     contacts is the entire point of the product, so a number that only
+     exists on screen is worse than not offering the field. */
+  const TEL_TYPE = { Mobile: 'CELL', Work: 'WORK', Home: 'HOME' };
+  if (card.phone) {
+    lines.push('TEL;type=' + (TEL_TYPE[card.phone_label] || 'CELL') + ':' + vcardEscape(card.phone));
+  }
+  if (card.phone_alt) {
+    lines.push('TEL;type=' + (TEL_TYPE[card.phone_alt_label] || 'WORK') + ':' + vcardEscape(card.phone_alt));
+  }
   lines.push('URL:' + vcardEscape(location.href));
   (card.links || []).forEach(l => {
     if (/^https?:\/\//i.test(l.url || '')) lines.push('URL:' + vcardEscape(l.url));
