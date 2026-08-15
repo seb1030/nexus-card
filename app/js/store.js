@@ -68,7 +68,7 @@ const DEFAULT_STATE = () => ({
   accountSecured: false,        // local-only until real magic-link linking + billing exist
   me: {
     id: null, name: '', title: '', company: '', phone: '', email: '',
-    color: '#4f46e5', initials: '', slug: '',
+    color: '#4f46e5', initials: '', slug: '', photoUrl: '',
     fields: { phone: true, email: true },
     geotag: false,
     accountEmail: '',
@@ -127,7 +127,7 @@ const Store = {
     Object.assign(this.state.me, {
       id: card.id, name: card.name, title: card.title, company: card.company,
       phone: card.phone, email: card.email, color: card.color, initials: card.initials,
-      slug: card.slug,
+      slug: card.slug, photoUrl: card.photo_url || '',
       fields: { phone: card.show_phone, email: card.show_email },
       geotag: card.geotag_enabled,
       links: (card.card_links || [])
@@ -304,6 +304,96 @@ const Store = {
     if (error) throw error;
     this.hydrateCard(data);
     return this.state.me;
+  },
+
+  /* ---- card photo ----
+     A face is what someone actually remembers after a conference; initials
+     are the fallback, not the goal. */
+
+  PHOTO_PX: 400,
+
+  /* Resizes and re-encodes to a square JPEG before anything is uploaded.
+     This is not an optimisation, it is a requirement: a current phone
+     camera produces 3-5 MB, and the public card is the one page that has
+     to appear instantly for a stranger on venue wifi holding someone
+     else's QR code. 400px square lands around 40 KB.
+
+     Re-encoding also strips EXIF, which matters more than the bytes: phone
+     photos carry GPS coordinates, and this image is published on a page
+     anyone with the link can open. Nobody uploading a headshot expects to
+     publish where it was taken. Drawing through a canvas discards all of
+     it because only pixels survive the round trip. */
+  async resizePhoto(file) {
+    if (!/^image\//.test(file.type)) throw new Error('That file is not an image.');
+    const bitmap = await createImageBitmap(file);
+    const side = Math.min(bitmap.width, bitmap.height);   // centre square crop
+    const sx = (bitmap.width - side) / 2;
+    const sy = (bitmap.height - side) / 2;
+    const px = this.PHOTO_PX;
+    const canvas = document.createElement('canvas');
+    canvas.width = px; canvas.height = px;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, px, px);
+    bitmap.close?.();
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('Could not process that image.');
+    return blob;
+  },
+
+  async uploadPhoto(file) {
+    if (!this.state.me.id) throw new Error('No card yet — finish setup first.');
+    const blob = await this.resizePhoto(file);
+
+    /* Path must start with the owner's uid: the storage policies check
+       (storage.foldername(name))[1] against auth.uid(), so any other
+       shape is rejected. The random suffix is what makes replacing a
+       photo take effect — a fixed filename would be served from the CDN
+       cache under the same URL and the user would swear it had not
+       changed. */
+    const oldUrl = this.state.me.photoUrl;
+    const path = `${this.userId}/${Math.random().toString(36).slice(2)}${Date.now().toString(36)}.jpg`;
+    const { error: upErr } = await sb.storage.from('card-photos')
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (upErr) throw upErr;
+
+    const { data: pub } = sb.storage.from('card-photos').getPublicUrl(path);
+    const photoUrl = pub.publicUrl;
+
+    const { data, error } = await sb.from('cards').update({ photo_url: photoUrl })
+      .eq('id', this.state.me.id).select('*, card_links(*)').single();
+    if (error) {
+      // Roll the object back rather than leaving one nothing points at.
+      await sb.storage.from('card-photos').remove([path]).catch(() => {});
+      throw error;
+    }
+    this.hydrateCard(data);
+    // Best-effort: the new photo is already live, so a failure to clear
+    // the previous one must not surface as a failed upload.
+    if (oldUrl) this._removePhotoObject(oldUrl);
+    return this.state.me;
+  },
+
+  async removePhoto() {
+    const oldUrl = this.state.me.photoUrl;
+    const { data, error } = await sb.from('cards').update({ photo_url: null })
+      .eq('id', this.state.me.id).select('*, card_links(*)').single();
+    if (error) throw error;
+    this.hydrateCard(data);
+    if (oldUrl) this._removePhotoObject(oldUrl);
+    return this.state.me;
+  },
+
+  /* Turns a public URL back into the object path and deletes it. Storage
+     is not covered by any CASCADE, so without this every replaced photo
+     stays in the bucket permanently, still publicly readable. */
+  _removePhotoObject(url) {
+    const marker = '/card-photos/';
+    const i = url.indexOf(marker);
+    if (i === -1) return;
+    const path = url.slice(i + marker.length).split('?')[0];
+    sb.storage.from('card-photos').remove([path])
+      .catch(err => console.warn('old card photo not removed', err));
   },
 
   /* Links could only ever be created during onboarding — there was no add

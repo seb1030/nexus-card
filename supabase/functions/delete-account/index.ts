@@ -88,6 +88,41 @@ Deno.serve(async (req) => {
       );
     }
 
+    /* Storage is NOT covered by the CASCADE that clears this user's rows
+       when the auth user goes. Deleting the account without this leaves
+       their photo — their face — publicly readable at a stable URL
+       forever, which flatly contradicts what privacy.html promises about
+       deletion. The DB row pointing at it disappears, so nothing would
+       ever surface the leftover again either.
+
+       Deleted BEFORE the auth user, while the folder name (their uid) is
+       still derivable and while a failure is still recoverable by
+       retrying: an orphaned object with no account left to link it to is
+       unreachable through the app and effectively permanent.
+
+       A failure here does not abort the deletion the way a failed Stripe
+       cancellation does. The asymmetry is deliberate: an uncancelled
+       subscription keeps charging someone who asked to leave, while a
+       leftover image is a privacy defect to clean up out of band. Refusing
+       to delete the account over it would trap the user in the account
+       they are trying to erase. */
+    const photoDir = `${user.id}/`;
+    try {
+      const { data: objects, error: listErr } = await admin.storage
+        .from("card-photos")
+        .list(user.id);
+      if (listErr) throw listErr;
+      if (objects?.length) {
+        const paths = objects.map((o) => photoDir + o.name);
+        const { error: rmErr } = await admin.storage.from("card-photos").remove(paths);
+        if (rmErr) throw rmErr;
+      }
+    } catch (err) {
+      // Logged loudly rather than swallowed: this is the signal that a
+      // human needs to sweep the bucket.
+      console.error("ORPHANED CARD PHOTO: storage cleanup failed", { userId: user.id, err: String(err) });
+    }
+
     const { error: delErr } = await admin.auth.admin.deleteUser(user.id);
     if (delErr) throw delErr;
 

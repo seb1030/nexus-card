@@ -8,7 +8,11 @@ Backend for Nexus Card. Project ref: `aryfefzkqqaaauyrddwp` · region ca-central
 - `functions/create-checkout-session/` — creates a Stripe Checkout Session for the caller.
 - `functions/stripe-webhook/` — the only writer to `subscriptions`; verifies Stripe's signature and syncs plan/status.
 - `functions/send-reminder-digest/` — cron-driven reminder email sweep (see its own section below).
-- `functions/delete-account/` — authenticated self-service account erasure (cancels live Stripe subs, then deletes the auth user; the CASCADE chain removes all owned rows). The privacy policy promises this — a deploy without it ships that promise against a 404.
+- `functions/delete-account/` — authenticated self-service account erasure (cancels live Stripe subs, clears the user's card photo from Storage, then deletes the auth user; the CASCADE chain removes all owned rows). The privacy policy promises this — a deploy without it ships that promise against a 404. **Storage is not covered by any CASCADE**: without the explicit cleanup in this function a deleted user's photo stays publicly readable at a stable URL forever, with no DB row left pointing at it to ever surface the leak.
+
+### Storage
+
+One bucket, `card-photos`, created by `20260816120000_card_photos.sql` rather than by hand, so a restore into a fresh project reproduces it. Public read (card.html is opened by strangers with no session, so there is nobody to sign a URL for); writes are restricted by policy to a folder named for the owner's uuid, which is the storage equivalent of the `owner_id = auth.uid()` rule every table uses. Uploads are resized to 400px square client-side before they leave the browser — that also strips EXIF, which matters because phone photos carry GPS and this image is published on a public page.
 
 ## What's NOT here (cloud-only, no local copy)
 

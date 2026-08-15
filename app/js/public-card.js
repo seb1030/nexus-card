@@ -87,7 +87,11 @@ function render() {
 
   root.innerHTML = `
     <div class="biz-card">
-      <div class="biz-logo">${esc(CARD.initials || 'NC')}</div>
+      <!-- alt is empty on purpose: the name is the very next element, so
+           announcing the photo as well would just repeat it. -->
+      <div class="biz-logo${CARD.photo_url ? ' has-photo' : ''}">${CARD.photo_url
+        ? `<img src="${esc(CARD.photo_url)}" alt="">`
+        : esc(CARD.initials || 'NC')}</div>
       <div class="biz-name">${esc(CARD.name)}</div>
       <div class="biz-title">${esc(CARD.title)}${CARD.company ? ' @ ' + esc(CARD.company) : ''}</div>
       <div class="biz-links">${links}</div>

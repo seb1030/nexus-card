@@ -68,8 +68,12 @@ const CardView = {
         <!-- No inline background: the monogram is a white tile with the
              brand colour as its text, sitting on the gradient cover. The
              colour reaches it through --brand on the root, which
-             CardView.render already sets from me.color. -->
-        <div class="biz-logo">${esc(me.initials || 'NC')}</div>
+             CardView.render already sets from me.color.
+             With a photo the same element becomes the frame for it, so the
+             ring, size and position carry over untouched. -->
+        <div class="biz-logo${me.photoUrl ? ' has-photo' : ''}">${me.photoUrl
+          ? `<img src="${esc(me.photoUrl)}" alt="">`
+          : esc(me.initials || 'NC')}</div>
         <div class="biz-name">${esc(me.name)}</div>
         <div class="biz-title">${esc(me.title)}${me.company ? ' @ ' + esc(me.company) : ''}</div>
         <div class="biz-links">${links}</div>
@@ -184,6 +188,29 @@ const CardView = {
     openSheet(`
       <h2>Edit card</h2>
       <div style="margin-top:12px">
+        <!-- Photo first: it is the thing people look at, and burying it
+             under the text fields would imply it is an afterthought.
+             The file input is visually hidden but still a real focusable
+             input inside its label, so keyboard and screen-reader users
+             reach it exactly as they would any other control. -->
+        <div class="photo-edit">
+          <div class="biz-logo${me.photoUrl ? ' has-photo' : ''}" style="margin:0;box-shadow:0 0 0 3px var(--paper),0 6px 16px -6px rgba(12,18,34,.3)">${me.photoUrl
+            ? `<img src="${esc(me.photoUrl)}" alt="">`
+            : esc(me.initials || 'NC')}</div>
+          <div style="flex:1">
+            <b style="font-size:14.5px">${me.photoUrl ? 'Your photo' : 'Add a photo'}</b>
+            <div class="sub" style="font-size:12.5px">${me.photoUrl
+              ? 'Shown on your card instead of your initials.'
+              : 'A face is easier to remember than initials.'}</div>
+            <div class="row" style="gap:6px;margin-top:8px">
+              <label class="btn small secondary" style="margin:0">
+                ${me.photoUrl ? 'Replace' : 'Choose photo'}
+                <input type="file" accept="image/*" class="visually-hidden" onchange="CardView.pickPhoto(this)">
+              </label>
+              ${me.photoUrl ? `<button class="btn small danger" style="width:auto" onclick="CardView.dropPhoto()">Remove</button>` : ''}
+            </div>
+          </div>
+        </div>
         <label class="field"><span>Name</span><input type="text" id="ed-name" value="${esc(d.name)}"></label>
         <label class="field"><span>Title</span><input type="text" id="ed-title" value="${esc(d.title)}"></label>
         <label class="field"><span>Company</span><input type="text" id="ed-company" value="${esc(d.company)}"></label>
@@ -243,6 +270,36 @@ const CardView = {
       App.renderTab();
       toast('✓ Link added');
     }, 'Could not add the link');
+  },
+
+  /* Photo picking. readEdit() first, for the same reason addLink does it:
+     these re-render the sheet, and anything typed above and not yet saved
+     would otherwise revert to the last saved value. */
+  async pickPhoto(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    // Cleared immediately so choosing the same file twice still fires a
+    // change event — otherwise a failed upload cannot be retried with the
+    // same photo.
+    input.value = '';
+    const draft = this.readEdit();
+    toast('Adding your photo…');
+    await guard(async () => {
+      await Store.uploadPhoto(file);
+      this.editSheet(draft);
+      App.renderTab();
+      toast('✓ Photo added');
+    }, 'Could not add that photo');
+  },
+
+  async dropPhoto() {
+    const draft = this.readEdit();
+    await guard(async () => {
+      await Store.removePhoto();
+      this.editSheet(draft);
+      App.renderTab();
+      toast('Photo removed — your initials are back');
+    }, 'Could not remove the photo');
   },
 
   async removeLink(i) {

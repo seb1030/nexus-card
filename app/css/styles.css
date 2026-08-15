@@ -170,6 +170,25 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
      or the 72px box, and it reads as the card punching through. */
   box-shadow: 0 0 0 5px var(--paper), 0 10px 24px -8px rgba(12,18,34,.35);
 }
+/* With a photo the element becomes the frame: same size, same ring, same
+   position over the cover. overflow hidden does the circular crop, so the
+   image needs no rounding of its own. */
+.biz-logo.has-photo { overflow: hidden; background: var(--sunken); }
+.biz-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Photo row in the edit sheet. The avatar here is the same .biz-logo, at
+   the same size, so what the user is editing is literally what appears on
+   the card. */
+.photo-edit { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+/* Hidden from sight, not from the accessibility tree or the tab order --
+   display:none would make the file input unreachable by keyboard. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* The label is styled as a button, so it needs the focus ring its wrapped
+   input would otherwise get on its own. */
+.btn:has(> .visually-hidden:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 .biz-name { font-size: 23px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; }
 .biz-title { color: var(--slate); font-size: 14px; margin-top: 4px; line-height: 1.4; }
 .biz-links { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
