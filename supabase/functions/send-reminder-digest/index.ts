@@ -91,7 +91,7 @@ function buildEmail(rows) {
   .wrap { background:#ffffff; color:#14140f; }
   .muted { color:#57564e; }
   .fine  { color:#6e6d64; }
-  .cta   { background:#4f46e5 !important; color:#ffffff !important; }
+  .cta   { background:#0891b2 !important; color:#ffffff !important; }
   @media (prefers-color-scheme: dark) {
     .wrap { background:#14140f !important; color:#f4f4f2 !important; }
     .muted { color:#b9b8b2 !important; }
@@ -108,7 +108,7 @@ function buildEmail(rows) {
   <p class="muted" style="font-size:14px;margin:0 0 18px">You said you'd circle back. Here's who's waiting.</p>
   <ul style="padding-left:18px;font-size:15px;line-height:1.5;margin:0">${items}</ul>
   <p style="margin:24px 0 0">
-    <a class="cta" href="${escapeHtml(APP_URL)}" style="background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;display:inline-block;font-size:15px;font-weight:600">Open Nexus Card</a>
+    <a class="cta" href="${escapeHtml(APP_URL)}" style="background:#0891b2;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;display:inline-block;font-size:15px;font-weight:600">Open Nexus Card</a>
   </p>
   <p class="fine" style="font-size:12px;margin-top:24px">
     You're getting this because you set a follow-up reminder in Nexus Card.

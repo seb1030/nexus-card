@@ -269,7 +269,7 @@ const CardView = {
         </div>
         <p class="sub" style="margin-bottom:8px;font-size:12px">Links save immediately. Everything above saves when you press Save.</p>
         <p class="section-label">Brand color</p>
-        <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
+        <div class="swatches">${['#0891b2', '#4f46e5', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
           `<button type="button" class="swatch ${me.color === c ? 'on' : ''}" style="background:${c}" aria-label="Brand colour ${c}" aria-pressed="${me.color === c}" onclick="CardView.saveColor('${c}')"></button>`).join('')}</div>
         <button class="btn" onclick="CardView.saveEdit()">Save</button>
       </div>`);

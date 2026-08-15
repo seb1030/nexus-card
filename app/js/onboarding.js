@@ -1,7 +1,7 @@
 /* Onboarding — 3 screens, 60-second setup, no email-verify gate */
 const Onboarding = {
   step: 1,
-  draft: { name: '', title: '', company: '', phone: '', email: '', color: '#4f46e5', fields: { phone: true, email: true }, geotag: false, links: [] },
+  draft: { name: '', title: '', company: '', phone: '', email: '', color: '#0891b2', fields: { phone: true, email: true }, geotag: false, links: [] },
 
   start() {
     this.step = 1;
@@ -208,7 +208,7 @@ const Onboarding = {
         <button class="btn small" onclick="Onboarding.addLink()">Add</button>
       </div>
       <p class="section-label">Branding</p>
-      <div class="swatches">${['#4f46e5', '#0891b2', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
+      <div class="swatches">${['#0891b2', '#4f46e5', '#16a34a', '#d97706', '#dc2626', '#111114'].map(c =>
         `<button type="button" class="swatch ${d.color === c ? 'on' : ''}" style="background:${c}" aria-label="Brand colour ${c}" aria-pressed="${d.color === c}" onclick="Onboarding.setColor('${c}')"></button>`).join('')}</div>
       <p class="sub">Logo & photo upload with auto-crop comes later — your initials look great meanwhile.</p>
       <button class="btn" style="margin-top:16px" onclick="Onboarding.step=3;Onboarding.render()">Continue</button>

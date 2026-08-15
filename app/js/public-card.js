@@ -96,7 +96,7 @@ function render() {
   /* The card owner's colour drives the cover gradient and every tint on
      this page, exactly as it does in the app. Set on the root rather than
      inline on the logo so one property re-skins the whole card. */
-  document.documentElement.style.setProperty('--brand', CARD.color || '#4f46e5');
+  document.documentElement.style.setProperty('--brand', CARD.color || '#0891b2');
 
   root.innerHTML = `
     <div class="biz-card">

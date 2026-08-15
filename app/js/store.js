@@ -69,7 +69,7 @@ const DEFAULT_STATE = () => ({
   me: {
     id: null, name: '', title: '', company: '', phone: '', email: '',
     phoneAlt: '', phoneLabel: 'Mobile', phoneAltLabel: 'Work',
-    color: '#4f46e5', initials: '', slug: '', photoUrl: '',
+    color: '#0891b2', initials: '', slug: '', photoUrl: '',
     fields: { phone: true, email: true, phoneAlt: true },
     geotag: false,
     accountEmail: '',

@@ -1,6 +1,6 @@
 /* Shared stylesheet for Nexus Card legal documents */
 :root {
-  --brand: #4f46e5; --ink: #111114; --gray-7: #3f3f46; --gray-5: #71717a;
+  --brand: #0891b2; --ink: #111114; --gray-7: #3f3f46; --gray-5: #71717a;
   --gray-2: #e9e9ee; --gray-1: #f4f4f6;
   font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
 }

@@ -16,24 +16,24 @@
  * has already drifted once this session -- both should move to a build-time
  * content hash. Until then: bump this AND the ?v=N together.
  */
-const CACHE_VERSION = 'nexus-shell-a3deb883';
+const CACHE_VERSION = 'nexus-shell-a483f3eb';
 
 const SHELL = [
   'index.html',
   'card.html',
   'landing.html',
-  'css/styles.css?v=8e431441',
-  'css/landing.css?v=e7d8140f',
+  'css/styles.css?v=69d63b17',
+  'css/landing.css?v=ee3566a1',
   'js/qrcode.js?v=18ae399f',
   'js/supabase-client.js?v=b6e73d9c',
-  'js/store.js?v=92a92556',
-  'js/onboarding.js?v=e61688f8',
-  'js/card.js?v=1b2fdf07',
+  'js/store.js?v=e92542ba',
+  'js/onboarding.js?v=c8450d0d',
+  'js/card.js?v=e7dda500',
   'js/contacts.js?v=1aab73a2',
   'js/pipeline.js?v=30afaa20',
   'js/analytics.js?v=d410790c',
   'js/app.js?v=8aa39232',
-  'js/public-card.js?v=b7f38c40',
+  'js/public-card.js?v=1f97d5c9',
   'favicon.svg',
   'manifest.json',
 ];

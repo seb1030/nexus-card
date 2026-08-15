@@ -17,7 +17,7 @@
    custom property re-skins the whole app. Each color-mix declaration is
    preceded by a flat fallback for browsers that lack it. */
 :root {
-  --brand: #4f46e5;
+  --brand: #0891b2;
 
   /* Cool architectural neutrals. Named for role, not for lightness, so
      the scale can be retuned without renaming every usage. */
@@ -417,7 +417,7 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
   width: 34px; height: 34px; flex: none;
   display: flex; align-items: center; justify-content: center;
   border-radius: 10px; font-size: 16px;
-  background: #4f46e5; color: #fff;
+  background: #0891b2; color: #fff;
 }
 .get-own-arrow { color: var(--gray-5, #71717a); font-size: 16px; }
 
@@ -458,7 +458,7 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 /* Keyboard focus was invisible everywhere: styles.css sets outline:none on
    inputs and never restores it for buttons, links or selects. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--brand, #4f46e5);
+  outline: 2px solid var(--brand, #0891b2);
   outline-offset: 2px;
   border-radius: 4px;
 }
