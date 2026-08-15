@@ -15,7 +15,12 @@ const Analytics = {
     const windowDays = st ? st.days : 30;
     const maxClicks = Math.max(1, ...s.me.links.map(l => Number(l.clicks) || 0));
     const hasActivity = st ? st.total_events > 0 : s.events.length > 0;
-    const icons = { view: '👀', save: '💾', click: '🔗', share: '📤', reminder_done: '✅' };
+    // Vector icons, matching the rest of the app. These sit in .feed-ic
+    // chips, which are now styled for an SVG rather than a glyph.
+    const icons = {
+      view: Icon.eye(), save: Icon.save(), click: Icon.link(),
+      share: Icon.share(), reminder_done: Icon.check()
+    };
     const pro = Store.isPro();
     const allRems = s.contacts.flatMap(c => c.reminders);
     const followThrough = allRems.length ? Math.round(allRems.filter(r => r.done).length / allRems.length * 100) : 0;

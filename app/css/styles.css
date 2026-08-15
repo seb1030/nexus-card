@@ -281,6 +281,11 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
 .feed-item:last-child { border-bottom: 0; }
 .feed-ic { width: 34px; height: 34px; border-radius: 11px; background: var(--gray-1); color: var(--slate); display: flex; align-items: center; justify-content: center; flex: none; }
 .feed-ic svg { width: 17px; height: 17px; }
+/* Buttons that lead with an icon (Email / Call on a contact). inline-flex
+   so the glyph sits on the text's optical centre rather than its baseline,
+   which is exactly what the emoji version got wrong. */
+.btn.inline-ic { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.inline-ic svg { width: 15px; height: 15px; flex: none; }
 .feed-time { color: var(--gray-5); font-size: 12px; }
 
 /* ---------- toasts ---------- */

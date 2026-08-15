@@ -140,8 +140,8 @@ const Contacts = {
         </div>
         <div class="chips" style="padding-top:10px">${(c.tags || []).map(t => `<span class="pill brand">${esc(t)}</span>`).join('')}</div>
         <div class="row" style="gap:8px;margin-top:6px">
-          ${c.email ? `<a class="btn small secondary" href="mailto:${encodeURI(c.email)}">✉️ Email</a>` : ''}
-          ${c.phone ? `<a class="btn small secondary" href="tel:${encodeURI(c.phone.replace(/[^\d+]/g, ''))}">📞 Call</a>` : ''}
+          ${c.email ? `<a class="btn small secondary inline-ic" href="mailto:${encodeURI(c.email)}">${Icon.mail()}Email</a>` : ''}
+          ${c.phone ? `<a class="btn small secondary inline-ic" href="tel:${encodeURI(c.phone.replace(/[^\d+]/g, ''))}">${Icon.phone()}Call</a>` : ''}
           ${c.phone ? `<a class="btn small secondary" href="https://wa.me/${encodeURIComponent(c.phone.replace(/[^\d]/g, ''))}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>` : ''}
           ${!c.email && !c.phone ? `<span class="sub">No email or phone on file.</span>` : ''}
         </div>

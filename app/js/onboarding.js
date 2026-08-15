@@ -242,9 +242,14 @@ const Onboarding = {
       <h1>How do you want to share?</h1>
       <p class="sub">All of these work the moment you finish — no hardware required.</p>
       <div style="margin-top:16px">
-        <div class="share-opt"><div class="feed-ic">▦</div><div><b>QR code</b><div class="sub">Generated instantly — they scan with their camera</div></div></div>
-        <div class="share-opt"><div class="feed-ic">🔗</div><div><b>Link</b><div class="sub">Copy to clipboard, send anywhere</div></div></div>
-        <div class="share-opt"><div class="feed-ic">◻</div><div><b>Add to home screen</b><div class="sub">Install Nexus like an app — no store needed</div></div></div>
+        <!-- Icon (card.js) rather than emoji: these are the same .share-opt
+             chips My Card uses, and this is the first screen a new user
+             sees -- an emoji here next to vector icons everywhere else is
+             the inconsistency they notice first. Resolved at render time,
+             so card.js loading after this file is fine. -->
+        <div class="share-opt"><div class="feed-ic">${Icon.qr()}</div><div><b>QR code</b><div class="sub">Generated instantly — they scan with their camera</div></div></div>
+        <div class="share-opt"><div class="feed-ic">${Icon.link()}</div><div><b>Link</b><div class="sub">Copy to clipboard, send anywhere</div></div></div>
+        <div class="share-opt"><div class="feed-ic">${Icon.home()}</div><div><b>Add to home screen</b><div class="sub">Install Nexus like an app — no store needed</div></div></div>
       </div>
       <button class="btn" style="margin-top:16px" onclick="Onboarding.finish()">Make my card live</button>
       <button class="btn ghost" onclick="Onboarding.step=2;Onboarding.render()">Back</button>`;
