@@ -81,12 +81,17 @@ function render() {
   // Label shown only when there are two numbers to distinguish, matching
   // the owner's preview in card.js.
   const twoPhones = !!(CARD.phone && CARD.phone_alt);
+  /* Real anchors, so tapping a number dials it and tapping the address
+     opens a compose window — on every platform, not just wherever the
+     browser happened to guess. tel: takes digits only; the formatting in
+     the display value is for reading, not for the dialler. */
+  const telHref = (v) => "tel:" + encodeURI(String(v).replace(/[^\d+]/g, ""));
   const phoneRow = (value, label) =>
-    `<span class="biz-row-ic">${phoneIcon}</span><span>${esc(value)}${
-      twoPhones ? `<span class="biz-row-tag">${esc(label || '')}</span>` : ''}</span>`;
+    `<a class="biz-row" href="${telHref(value)}"><span class="biz-row-ic">${phoneIcon}</span><span>${esc(value)}${
+      twoPhones ? `<span class="biz-row-tag">${esc(label || '')}</span>` : ''}</span></a>`;
   if (CARD.phone) rows.push(phoneRow(CARD.phone, CARD.phone_label));
   if (CARD.phone_alt) rows.push(phoneRow(CARD.phone_alt, CARD.phone_alt_label));
-  if (CARD.email) rows.push(`<span class="biz-row-ic">${svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>')}</span><span>${esc(CARD.email)}</span>`);
+  if (CARD.email) rows.push(`<a class="biz-row" href="mailto:${encodeURI(CARD.email)}"><span class="biz-row-ic">${svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>')}</span><span>${esc(CARD.email)}</span></a>`);
 
   /* The card owner's colour drives the cover gradient and every tint on
      this page, exactly as it does in the app. Set on the root rather than
@@ -103,7 +108,9 @@ function render() {
       <div class="biz-name">${esc(CARD.name)}</div>
       <div class="biz-title">${esc(CARD.title)}${CARD.company ? ' @ ' + esc(CARD.company) : ''}</div>
       <div class="biz-links">${links}</div>
-      <div class="biz-contact-rows">${rows.map(r => `<div class="biz-row">${r}</div>`).join('')}</div>
+      <!-- Each row is already a complete .biz-row anchor, so it is joined
+           straight in rather than wrapped again. -->
+      <div class="biz-contact-rows">${rows.join('')}</div>
       <div class="biz-actions">
         <button class="btn" onclick="saveContact()">Save to Contacts</button>
         <button class="btn secondary" onclick="shareThisCard()">Share</button>

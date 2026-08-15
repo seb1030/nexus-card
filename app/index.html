@@ -12,7 +12,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Nexus">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/styles.css?v=3f45a3a3">
+<!-- iOS Safari otherwise finds phone numbers in text and turns them into
+     links with its own underline, which does not match anything else on
+     the card and only happens on iOS — so the same card looked different
+     per platform, and was tappable on one and dead on the others. The
+     contact rows are explicit anchors now; this stops Safari adding a
+     second, unstyled layer on top of them. -->
+<meta name="format-detection" content="telephone=no">
+<link rel="stylesheet" href="css/styles.css?v=8e431441">
 <!-- Funnel analytics (onboarding, upgrade clicks) for the app itself --
      never added to card.html, which promises third-party card viewers
      no tracking. data-domain must match the live host; update it if a
@@ -78,7 +85,7 @@
 <script src="js/supabase-client.js?v=b6e73d9c"></script>
 <script src="js/store.js?v=92a92556"></script>
 <script src="js/onboarding.js?v=e61688f8"></script>
-<script src="js/card.js?v=24678f45"></script>
+<script src="js/card.js?v=1b2fdf07"></script>
 <script src="js/contacts.js?v=1aab73a2"></script>
 <script src="js/pipeline.js?v=30afaa20"></script>
 <script src="js/analytics.js?v=d410790c"></script>

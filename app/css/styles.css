@@ -208,13 +208,21 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
    Left-aligned inside a centred card on purpose -- a phone number and an
    email are data to be read, and centred data is harder to scan. */
 .biz-contact-rows { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+/* An anchor, so a recipient can tap a number to dial or an address to
+   compose. text-decoration and color are reset explicitly: without them
+   the browser's default link styling (underline, blue) lands on top of
+   the card's own type, which is what iOS Safari's auto-detection used to
+   do to these rows before they were real links. */
 .biz-row {
   display: flex; align-items: center; gap: 11px;
-  font-size: 14px; color: var(--slate-deep);
+  font-size: 14px; color: var(--slate-deep); text-decoration: none;
   padding: 9px 11px; border-radius: 12px;
   background: var(--gray-1); border: 1px solid var(--line);
   overflow-wrap: anywhere;
+  transition: background .12s, border-color .12s;
 }
+.biz-row:active { background: var(--sunken); border-color: var(--gray-3); }
+.biz-row:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .biz-row-ic {
   width: 30px; height: 30px; border-radius: 9px; flex: none;
   display: flex; align-items: center; justify-content: center;
@@ -419,6 +427,7 @@ label.field span { display: block; font-size: 12px; font-weight: 600; color: var
   /* Added with the card-box hover/press tint -- a transition is still
      motion, and this list is long enough to matter. */
   .card-box.tappable { transition: none; }
+  .biz-row { transition: none; }
 }
 
 /* ---- Pipeline card: tappable body + explicit Move control.

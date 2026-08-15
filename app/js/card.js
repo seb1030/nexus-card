@@ -65,12 +65,24 @@ const CardView = {
        apart. Someone with a single number does not need it captioned
        "Mobile" — that is the app explaining its own data model. */
     const twoPhones = !!(me.fields.phone && me.phone && me.fields.phoneAlt && me.phoneAlt);
+    /* Anchors, matching public-card.js exactly. Tapping your own number
+       here is admittedly not much use, but it keeps this preview and the
+       page a stranger opens as the same markup — the moment the two are
+       built differently they start to drift, and the preview stops being
+       a preview. */
+    /* encodeURI, not encodeURIComponent: the latter escapes "+" to %2B and
+       "@" to %40, and both characters are significant here — a leading +
+       is what marks a number as international, which this app explicitly
+       supports. encodeURI leaves them alone and still escapes anything
+       genuinely unsafe. Matches the existing tel:/mailto: links in
+       contacts.js. */
+    const telHref = (v) => 'tel:' + encodeURI(String(v).replace(/[^\d+]/g, ''));
     const phoneRow = (value, label) =>
-      `<span class="biz-row-ic">${Icon.phone()}</span><span>${esc(value)}${
-        twoPhones ? `<span class="biz-row-tag">${esc(label)}</span>` : ''}</span>`;
+      `<a class="biz-row" href="${telHref(value)}"><span class="biz-row-ic">${Icon.phone()}</span><span>${esc(value)}${
+        twoPhones ? `<span class="biz-row-tag">${esc(label)}</span>` : ''}</span></a>`;
     if (me.fields.phone && me.phone) rows.push(phoneRow(me.phone, me.phoneLabel));
     if (me.fields.phoneAlt && me.phoneAlt) rows.push(phoneRow(me.phoneAlt, me.phoneAltLabel));
-    if (me.fields.email && me.email) rows.push(`<span class="biz-row-ic">${Icon.mail()}</span><span>${esc(me.email)}</span>`);
+    if (me.fields.email && me.email) rows.push(`<a class="biz-row" href="mailto:${encodeURI(me.email)}"><span class="biz-row-ic">${Icon.mail()}</span><span>${esc(me.email)}</span></a>`);
     return `
       <div class="biz-card">
         <!-- No inline background: the monogram is a white tile with the
@@ -85,7 +97,8 @@ const CardView = {
         <div class="biz-name">${esc(me.name)}</div>
         <div class="biz-title">${esc(me.title)}${me.company ? ' @ ' + esc(me.company) : ''}</div>
         <div class="biz-links">${links}</div>
-        <div class="biz-contact-rows">${rows.map(r => `<div class="biz-row">${r}</div>`).join('')}</div>
+        <!-- Each row is already a complete .biz-row anchor. -->
+        <div class="biz-contact-rows">${rows.join('')}</div>
         ${isRecipient ? `
           <div class="biz-actions">
             <button class="btn" onclick="Recipient.saveContact()">Save to Contacts</button>
